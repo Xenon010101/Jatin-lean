@@ -24,12 +24,12 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/your-username/jatin-lean.git"
+    "url": "git+https://github.com/decodejatin/npm-package.git"
   },
   "bugs": {
-    "url": "https://github.com/your-username/jatin-lean/issues"
+    "url": "https://github.com/decodejatin/npm-package/issues"
   },
-  "homepage": "https://github.com/your-username/jatin-lean#readme",
+  "homepage": "https://github.com/decodejatin/npm-package#readme",
   "engines": {
     "node": ">=14.0.0"
   },
