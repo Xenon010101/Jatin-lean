@@ -1,6 +1,6 @@
 [package]
 name = "jatin-lean"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2021"
 description = "A high-performance CLI utility to prune non-essential files from node_modules, reducing disk footprint by up to 50% without breaking runtime dependencies."
 authors = ["Jatin Jalandhra"]
@@ -46,9 +46,6 @@ toml = "0.8"
 
 # Interactive prompts
 dialoguer = "0.11"
-
-# Home directory detection
-dirs = "5.0"
 
 # Home directory detection
 dirs = "5.0"
