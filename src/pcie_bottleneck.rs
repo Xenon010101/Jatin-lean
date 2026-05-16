@@ -1,0 +1,347 @@
+//! PCIe Bottleneck Quantifier & CUDA Memory Transfer Simulator
+//!
+//! From Sections 5.1-5.3: Models PCIe bandwidth limits, CUDA memory
+//! paradigms (pageable, pinned, unified, HW-coherent), prefetch
+//! scheduling, and VRAM layer offloading for LLM inference.
+
+use std::time::{Duration, Instant};
+
+// ─── PCIe Specifications ─────────────────────────────────────────────────────
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PcieGen {
+    Gen3,
+    Gen4,
+    Gen5,
+    NvLinkC2C,
+}
+
+impl PcieGen {
+    /// Bidirectional bandwidth in GB/s.
+    pub fn bandwidth_gbps(&self) -> f64 {
+        match self {
+            Self::Gen3 => 32.0,
+            Self::Gen4 => 64.0,
+            Self::Gen5 => 128.0,
+            Self::NvLinkC2C => 900.0,
+        }
+    }
+
+    /// Per-lane bandwidth (GT/s).
+    pub fn per_lane_gts(&self) -> f64 {
+        match self {
+            Self::Gen3 => 8.0, Self::Gen4 => 16.0,
+            Self::Gen5 => 32.0, Self::NvLinkC2C => 900.0,
+        }
+    }
+
+    pub fn label(&self) -> &'static str {
+        match self {
+            Self::Gen3 => "PCIe Gen3 x16", Self::Gen4 => "PCIe Gen4 x16",
+            Self::Gen5 => "PCIe Gen5 x16", Self::NvLinkC2C => "NVLink-C2C",
+        }
+    }
+}
+
+// ─── CUDA Memory Paradigm Simulator ──────────────────────────────────────────
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CudaMemoryType {
+    /// Standard pageable — worst performance
+    Pageable,
+    /// Pinned (page-locked) — saturates PCIe
+    Pinned,
+    /// cudaMallocManaged — page fault migration
+    UnifiedManaged,
+    /// Grace Hopper hardware-coherent unified
+    HardwareCoherent,
+}
+
+impl CudaMemoryType {
+    pub fn label(&self) -> &'static str {
+        match self {
+            Self::Pageable => "Pageable (malloc)", Self::Pinned => "Pinned (cudaHostAlloc)",
+            Self::UnifiedManaged => "Unified (cudaMallocManaged)",
+            Self::HardwareCoherent => "HW-Coherent (GH200 NVLink-C2C)",
+        }
+    }
+
+    /// Effective bandwidth as percentage of theoretical PCIe max.
+    pub fn bandwidth_efficiency(&self) -> f64 {
+        match self {
+            Self::Pageable => 0.40,
+            Self::Pinned => 0.95,
+            Self::UnifiedManaged => 0.55,
+            Self::HardwareCoherent => 0.98,
+        }
+    }
+
+    /// First-access latency (ns).
+    pub fn first_access_latency_ns(&self) -> f64 {
+        match self {
+            Self::Pageable => 15000.0,        // Copy + page staging
+            Self::Pinned => 5000.0,           // DMA setup
+            Self::UnifiedManaged => 50000.0,  // Page fault + 8KB migration
+            Self::HardwareCoherent => 200.0,  // Hardware cache coherency
+        }
+    }
+
+    /// Programming complexity (1-10).
+    pub fn complexity(&self) -> u8 {
+        match self {
+            Self::Pageable => 2, Self::Pinned => 7,
+            Self::UnifiedManaged => 3, Self::HardwareCoherent => 2,
+        }
+    }
+}
+
+/// Simulate a CUDA memory transfer.
+#[derive(Debug, Clone)]
+pub struct TransferSimulation {
+    pub mem_type: CudaMemoryType,
+    pub interconnect: PcieGen,
+    pub data_size_bytes: u64,
+    pub transfer_time_us: f64,
+    pub effective_bandwidth_gbps: f64,
+    pub first_access_latency_ns: f64,
+    pub page_faults: u64,
+}
+
+/// Simulate a memory transfer between CPU and GPU.
+pub fn simulate_transfer(mem_type: CudaMemoryType, interconnect: PcieGen, data_size_bytes: u64) -> TransferSimulation {
+    let bw = interconnect.bandwidth_gbps() * mem_type.bandwidth_efficiency();
+    let transfer_time_us = (data_size_bytes as f64) / (bw * 1e3); // GB/s → bytes/µs
+    let page_faults = if mem_type == CudaMemoryType::UnifiedManaged {
+        data_size_bytes / 8192 // 8KB page size for CUDA UM
+    } else { 0 };
+
+    TransferSimulation {
+        mem_type, interconnect, data_size_bytes,
+        transfer_time_us, effective_bandwidth_gbps: bw,
+        first_access_latency_ns: mem_type.first_access_latency_ns(),
+        page_faults,
+    }
+}
+
+// ─── cudaMemPrefetchAsync Simulation ─────────────────────────────────────────
+
+/// Prefetch schedule entry.
+#[derive(Debug, Clone)]
+pub struct PrefetchEntry {
+    pub offset: u64,
+    pub size: u64,
+    pub target_device: PrefetchTarget,
+    pub stream_id: u32,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum PrefetchTarget {
+    Gpu(u32),   // GPU device ID
+    Cpu,
+}
+
+/// Schedule prefetch operations to mask transfer latency.
+pub fn schedule_prefetch(total_bytes: u64, chunk_size: u64, target: PrefetchTarget) -> Vec<PrefetchEntry> {
+    let mut schedule = Vec::new();
+    let mut offset = 0;
+    let mut stream = 0u32;
+
+    while offset < total_bytes {
+        let size = chunk_size.min(total_bytes - offset);
+        schedule.push(PrefetchEntry {
+            offset, size, target_device: target,
+            stream_id: stream % 4, // Round-robin 4 CUDA streams
+        });
+        offset += size;
+        stream += 1;
+    }
+    schedule
+}
+
+// ─── VRAM Layer Offloading Controller ────────────────────────────────────────
+
+/// LLM layer offloading decision.
+#[derive(Debug, Clone)]
+pub struct LayerOffload {
+    pub layer_id: usize,
+    pub layer_name: String,
+    pub size_bytes: u64,
+    pub placement: LayerPlacement,
+    pub reason: String,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LayerPlacement {
+    Vram,
+    SystemRam,
+    NvLinkUnified,
+}
+
+impl LayerPlacement {
+    pub fn label(&self) -> &'static str {
+        match self {
+            Self::Vram => "GPU VRAM (HBM3)",
+            Self::SystemRam => "CPU System RAM (LPDDR5X)",
+            Self::NvLinkUnified => "NVLink Unified Memory",
+        }
+    }
+    pub fn icon(&self) -> &'static str {
+        match self { Self::Vram => "🟢", Self::SystemRam => "🔵", Self::NvLinkUnified => "🟡" }
+    }
+}
+
+/// Offload controller for LLM layer placement.
+pub struct VramOffloadController {
+    pub vram_capacity_bytes: u64,
+    pub system_ram_bytes: u64,
+    pub has_nvlink: bool,
+    pub vram_used: u64,
+}
+
+impl VramOffloadController {
+    pub fn new(vram_gb: u64, sys_ram_gb: u64, has_nvlink: bool) -> Self {
+        Self {
+            vram_capacity_bytes: vram_gb * 1024 * 1024 * 1024,
+            system_ram_bytes: sys_ram_gb * 1024 * 1024 * 1024,
+            has_nvlink, vram_used: 0,
+        }
+    }
+
+    pub fn grace_hopper() -> Self {
+        Self::new(96, 512, true) // 96GB HBM3 + 512GB LPDDR5X
+    }
+
+    pub fn discrete_gpu() -> Self {
+        Self::new(80, 256, false) // A100 80GB + 256GB DDR5
+    }
+
+    /// Place LLM layers optimally across VRAM and system RAM.
+    pub fn place_layers(&mut self, layers: &[(String, u64)]) -> Vec<LayerOffload> {
+        let mut placements = Vec::new();
+        self.vram_used = 0;
+
+        for (i, (name, size)) in layers.iter().enumerate() {
+            let placement = if self.vram_used + size <= self.vram_capacity_bytes {
+                self.vram_used += size;
+                LayerOffload {
+                    layer_id: i, layer_name: name.clone(), size_bytes: *size,
+                    placement: LayerPlacement::Vram,
+                    reason: format!("Fits in VRAM ({:.1}/{:.1} GB used)",
+                        self.vram_used as f64 / 1e9, self.vram_capacity_bytes as f64 / 1e9),
+                }
+            } else if self.has_nvlink {
+                LayerOffload {
+                    layer_id: i, layer_name: name.clone(), size_bytes: *size,
+                    placement: LayerPlacement::NvLinkUnified,
+                    reason: "VRAM full → NVLink unified memory (900 GB/s)".into(),
+                }
+            } else {
+                LayerOffload {
+                    layer_id: i, layer_name: name.clone(), size_bytes: *size,
+                    placement: LayerPlacement::SystemRam,
+                    reason: "VRAM full → CPU offload (PCIe bottleneck)".into(),
+                }
+            };
+            placements.push(placement);
+        }
+        placements
+    }
+}
+
+pub fn print_pcie_report(sims: &[TransferSimulation]) {
+    use console::style;
+    println!();
+    println!("  {} {}", style("PCIe & CUDA Memory Transfer Analysis").cyan().bold(),
+        style("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━").dim());
+    for s in sims {
+        println!("  {} {} via {} | {:.1} GB",
+            style("▸").dim(), style(s.mem_type.label()).yellow(),
+            s.interconnect.label(), s.data_size_bytes as f64 / 1e9);
+        println!("    Transfer: {:.1} µs | BW: {:.1} GB/s | 1st access: {:.0} ns | Faults: {}",
+            s.transfer_time_us, s.effective_bandwidth_gbps,
+            s.first_access_latency_ns, s.page_faults);
+    }
+    println!();
+}
+
+pub fn print_offload_report(placements: &[LayerOffload]) {
+    use console::style;
+    println!();
+    println!("  {} {}", style("VRAM Layer Offloading Plan").cyan().bold(),
+        style("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━").dim());
+    let mut vram_total = 0u64;
+    let mut sys_total = 0u64;
+    let mut nvlink_total = 0u64;
+    for p in placements {
+        match p.placement {
+            LayerPlacement::Vram => vram_total += p.size_bytes,
+            LayerPlacement::SystemRam => sys_total += p.size_bytes,
+            LayerPlacement::NvLinkUnified => nvlink_total += p.size_bytes,
+        }
+        println!("  {} Layer {}: {} → {} ({:.1} GB) — {}",
+            p.placement.icon(), p.layer_id, style(&p.layer_name).white(),
+            p.placement.label(), p.size_bytes as f64 / 1e9, style(&p.reason).dim());
+    }
+    println!();
+    println!("  {} VRAM: {:.1} GB | NVLink: {:.1} GB | System RAM: {:.1} GB",
+        style("📊").yellow(), vram_total as f64 / 1e9,
+        nvlink_total as f64 / 1e9, sys_total as f64 / 1e9);
+    println!();
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_transfer_sim() {
+        let sim = simulate_transfer(CudaMemoryType::Pinned, PcieGen::Gen5, 1024 * 1024 * 1024);
+        assert!(sim.effective_bandwidth_gbps > 100.0);
+        assert_eq!(sim.page_faults, 0);
+    }
+
+    #[test]
+    fn test_unified_page_faults() {
+        let sim = simulate_transfer(CudaMemoryType::UnifiedManaged, PcieGen::Gen4, 1024 * 1024);
+        assert!(sim.page_faults > 0);
+    }
+
+    #[test]
+    fn test_nvlink_bandwidth() {
+        let sim = simulate_transfer(CudaMemoryType::HardwareCoherent, PcieGen::NvLinkC2C, 1024*1024*1024);
+        assert!(sim.effective_bandwidth_gbps > 800.0);
+    }
+
+    #[test]
+    fn test_prefetch_schedule() {
+        let schedule = schedule_prefetch(1024 * 1024 * 100, 1024 * 1024, PrefetchTarget::Gpu(0));
+        assert_eq!(schedule.len(), 100);
+        assert_eq!(schedule[0].stream_id, 0);
+        assert_eq!(schedule[3].stream_id, 3);
+    }
+
+    #[test]
+    fn test_vram_offload_gh() {
+        let mut ctrl = VramOffloadController::grace_hopper();
+        let layers: Vec<(String, u64)> = (0..100)
+            .map(|i| (format!("transformer.layer.{}", i), 2u64 * 1024 * 1024 * 1024))
+            .collect();
+        let plan = ctrl.place_layers(&layers);
+        assert_eq!(plan.len(), 100);
+        let vram_count = plan.iter().filter(|p| p.placement == LayerPlacement::Vram).count();
+        assert!(vram_count > 0 && vram_count < 100);
+        let nvlink_count = plan.iter().filter(|p| p.placement == LayerPlacement::NvLinkUnified).count();
+        assert!(nvlink_count > 0); // Some layers overflow to NVLink
+    }
+
+    #[test]
+    fn test_discrete_offload() {
+        let mut ctrl = VramOffloadController::discrete_gpu();
+        let layers: Vec<(String, u64)> = (0..50)
+            .map(|i| (format!("layer.{}", i), 4u64 * 1024 * 1024 * 1024))
+            .collect();
+        let plan = ctrl.place_layers(&layers);
+        let sys_count = plan.iter().filter(|p| p.placement == LayerPlacement::SystemRam).count();
+        assert!(sys_count > 0); // No NVLink, must use system RAM
+    }
+}
