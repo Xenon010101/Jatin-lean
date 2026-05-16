@@ -1637,7 +1637,7 @@ fn handle_subcommand(command: Commands) -> Result<()> {
                 // Demo JSON
                 serde_json::to_vec_pretty(&serde_json::json!({
                     "project": "jatin-lean",
-                    "version": "0.5.0",
+                    "version": "0.5.1",
                     "features": ["xdp", "ipc", "rkyv", "coalescing", "gpu"],
                     "stats": {"modules": 40, "tests": 230, "loc": 15000}
                 })).unwrap()
