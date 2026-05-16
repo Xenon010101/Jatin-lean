@@ -69,7 +69,74 @@ pub struct Config {
     /// Additional patterns to include (always delete)
     #[serde(default)]
     pub include_patterns: Vec<String>,
+
+    // === Performance & Cache Settings (Steps 11, 12, 15) ===
+
+    /// Enable the incremental scan cache
+    #[serde(default = "default_true")]
+    pub cache_enabled: bool,
+
+    /// Cache TTL in seconds (default: 86400 = 24h)
+    #[serde(default = "default_cache_ttl")]
+    pub cache_ttl_seconds: u64,
+
+    /// Maximum cache size in MB
+    #[serde(default = "default_cache_max_mb")]
+    pub cache_max_size_mb: u64,
+
+    /// Enable memory-mapped cache files
+    #[serde(default)]
+    pub mmap_cache: bool,
+
+    // === Strategy Settings (Step 15) ===
+
+    /// Fast-path threshold: max file count for fast-path scanning
+    #[serde(default = "default_fast_path_files")]
+    pub fast_path_max_files: i64,
+
+    /// Fast-path threshold: max package size in KB
+    #[serde(default = "default_fast_path_size_kb")]
+    pub fast_path_max_size_kb: u64,
+
+    /// Packages to always use fast-path scanning
+    #[serde(default)]
+    pub fast_path_packages: Vec<String>,
+
+    /// Packages to always skip
+    #[serde(default)]
+    pub skip_packages: Vec<String>,
+
+    // === Profiling Settings (Step 15) ===
+
+    /// Enable performance profiling by default
+    #[serde(default)]
+    pub profiling_enabled: bool,
+
+    /// Show per-package timing breakdown
+    #[serde(default)]
+    pub show_package_timings: bool,
+
+    // === Distributed Cache Settings (Step 15) ===
+
+    /// Enable distributed caching
+    #[serde(default)]
+    pub distributed_cache_enabled: bool,
+
+    /// Remote cache endpoints
+    #[serde(default)]
+    pub distributed_cache_endpoints: Vec<String>,
+
+    /// Distributed cache timeout in ms
+    #[serde(default = "default_dist_cache_timeout")]
+    pub distributed_cache_timeout_ms: u64,
 }
+
+fn default_true() -> bool { true }
+fn default_cache_ttl() -> u64 { 86400 }
+fn default_cache_max_mb() -> u64 { 100 }
+fn default_fast_path_files() -> i64 { 20 }
+fn default_fast_path_size_kb() -> u64 { 100 }
+fn default_dist_cache_timeout() -> u64 { 5000 }
 
 impl Default for Config {
     fn default() -> Self {
@@ -89,6 +156,23 @@ impl Default for Config {
             ts_source_extensions: vec![],
             exclude_patterns: vec![],
             include_patterns: vec![],
+            // Performance & Cache
+            cache_enabled: true,
+            cache_ttl_seconds: 86400,
+            cache_max_size_mb: 100,
+            mmap_cache: false,
+            // Strategy
+            fast_path_max_files: 20,
+            fast_path_max_size_kb: 100,
+            fast_path_packages: vec![],
+            skip_packages: vec![],
+            // Profiling
+            profiling_enabled: false,
+            show_package_timings: false,
+            // Distributed Cache
+            distributed_cache_enabled: false,
+            distributed_cache_endpoints: vec![],
+            distributed_cache_timeout_ms: 5000,
         }
     }
 }
