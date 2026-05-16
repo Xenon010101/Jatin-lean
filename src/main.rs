@@ -27,6 +27,26 @@ mod tracer;
 mod treeshake;
 mod visualizer;
 mod watcher;
+mod ringbuffer;
+mod strategy;
+mod distributed_cache;
+mod analyzer;
+mod xdp_middleware;
+mod shared_memory_ipc;
+mod zero_copy_serde;
+mod request_coalescing;
+mod adaptive_engine;
+mod unified_gateway;
+mod simd_json;
+mod memory_pool;
+mod maglev;
+mod io_uring;
+mod cpu_cache;
+mod hardware_tuning;
+mod bpf_verifier;
+mod pcie_bottleneck;
+mod hedging;
+mod mmap_ipc;
 
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
@@ -269,6 +289,320 @@ enum Commands {
         #[arg(default_value = ".")]
         path: PathBuf,
     },
+
+    /// Analyze package structure, detect frameworks, and classify packages
+    Analyze {
+        /// Path to the project directory
+        #[arg(default_value = ".")]
+        path: PathBuf,
+    },
+
+    /// Manage the distributed cache
+    DistCache {
+        /// Show distributed cache stats
+        #[arg(long)]
+        stats: bool,
+
+        /// Clear the distributed cache
+        #[arg(long)]
+        clear: bool,
+
+        /// Evict expired entries
+        #[arg(long)]
+        evict: bool,
+    },
+
+    /// XDP/eBPF network middleware analysis and benchmarks
+    Xdp {
+        /// Show architecture comparison table
+        #[arg(long)]
+        compare: bool,
+
+        /// Run packet processing benchmark
+        #[arg(long)]
+        bench: bool,
+
+        /// Number of simulated packets for benchmark
+        #[arg(long, default_value = "1000000")]
+        packets: u64,
+
+        /// Obfuscation mode: none, udp-to-tcp, xor, tls, http
+        #[arg(long, default_value = "none")]
+        obfuscation: String,
+    },
+
+    /// Shared memory IPC ring buffer benchmark
+    Ipc {
+        /// Run the SPSC ring buffer throughput benchmark
+        #[arg(long)]
+        bench: bool,
+
+        /// Ring buffer capacity (slots)
+        #[arg(long, default_value = "1024")]
+        capacity: usize,
+
+        /// Number of messages to send
+        #[arg(long, default_value = "100000")]
+        messages: u64,
+
+        /// Show memory layout info
+        #[arg(long)]
+        layout: bool,
+    },
+
+    /// Zero-copy serialization benchmark (rkyv vs JSON)
+    Serde {
+        /// Run serialization benchmark
+        #[arg(long)]
+        bench: bool,
+
+        /// Number of entities to serialize
+        #[arg(long, default_value = "100")]
+        entities: usize,
+
+        /// Number of iterations
+        #[arg(long, default_value = "1000")]
+        iterations: u64,
+
+        /// Show framework comparison table
+        #[arg(long)]
+        compare: bool,
+    },
+
+    /// Request coalescing and cache stampede prevention demo
+    Coalesce {
+        /// Run singleflight deduplication demo
+        #[arg(long)]
+        demo: bool,
+
+        /// Number of concurrent requests to simulate
+        #[arg(long, default_value = "1000")]
+        requests: u64,
+
+        /// Number of unique resource keys
+        #[arg(long, default_value = "10")]
+        keys: u64,
+
+        /// Show structural cache stats
+        #[arg(long)]
+        cache_stats: bool,
+    },
+
+    /// Adaptive CPU-GPU execution engine analysis
+    Engine {
+        /// Run workload routing analysis
+        #[arg(long)]
+        analyze: bool,
+
+        /// Simulate Grace Hopper hardware environment
+        #[arg(long)]
+        grace_hopper: bool,
+
+        /// Show memory paradigm comparison table
+        #[arg(long)]
+        compare: bool,
+
+        /// Run multi-workload routing benchmark
+        #[arg(long)]
+        bench: bool,
+    },
+
+    /// Unified 6-stage gateway pipeline benchmark
+    Gateway {
+        /// Run full pipeline benchmark
+        #[arg(long)]
+        bench: bool,
+
+        /// Number of requests to process
+        #[arg(long, default_value = "10000")]
+        requests: u64,
+
+        /// Payload size in bytes
+        #[arg(long, default_value = "1024")]
+        payload_size: usize,
+    },
+
+    /// SIMD-accelerated JSON structural scanner
+    SimdJson {
+        /// Scan a JSON file
+        #[arg(long, value_name = "FILE")]
+        file: Option<std::path::PathBuf>,
+
+        /// Inline JSON string to scan
+        #[arg(long)]
+        input: Option<String>,
+
+        /// Extract all keys from JSON
+        #[arg(long)]
+        keys: bool,
+
+        /// Run RFC 7396 merge patch demo
+        #[arg(long)]
+        merge_patch: bool,
+    },
+
+    /// Arena memory pool allocator benchmark
+    Arena {
+        /// Run allocation benchmark
+        #[arg(long)]
+        bench: bool,
+
+        /// Arena capacity in KB
+        #[arg(long, default_value = "1024")]
+        capacity_kb: usize,
+
+        /// Number of allocations
+        #[arg(long, default_value = "100000")]
+        allocations: u64,
+    },
+
+    /// Maglev consistent hashing analysis
+    Maglev {
+        /// Backend server names (comma-separated)
+        #[arg(long, default_value = "server-1,server-2,server-3,server-4,server-5")]
+        backends: String,
+
+        /// Hash table size (should be prime)
+        #[arg(long, default_value = "65537")]
+        table_size: usize,
+
+        /// Run distribution analysis
+        #[arg(long)]
+        analyze: bool,
+
+        /// Test disruption rate when removing a backend
+        #[arg(long)]
+        disruption: Option<String>,
+    },
+
+    /// io_uring async I/O engine benchmark
+    IoUring {
+        /// Run batched stat benchmark
+        #[arg(long)]
+        bench: bool,
+
+        /// Number of files to simulate
+        #[arg(long, default_value = "10000")]
+        files: u64,
+
+        /// Show I/O API comparison table
+        #[arg(long)]
+        compare: bool,
+
+        /// Use NVMe-optimized settings
+        #[arg(long)]
+        nvme: bool,
+    },
+
+    /// CPU cache optimization and prefetch benchmark
+    CpuCache {
+        /// Run cache-optimized scan benchmark
+        #[arg(long)]
+        bench: bool,
+
+        /// Working set size in KB
+        #[arg(long, default_value = "8192")]
+        working_set_kb: usize,
+
+        /// Show cache hierarchy info
+        #[arg(long)]
+        info: bool,
+
+        /// Analyze TLB pressure for working set
+        #[arg(long)]
+        tlb: bool,
+    },
+
+    /// System hardware optimization assessment
+    Optimize {
+        /// Run full system assessment
+        #[arg(long)]
+        assess: bool,
+
+        /// Show NUMA topology
+        #[arg(long)]
+        numa: bool,
+
+        /// Show network tuning recommendations
+        #[arg(long)]
+        network: bool,
+
+        /// Show kernel parameter tuning
+        #[arg(long)]
+        kernel: bool,
+
+        /// Generate all sysctl commands
+        #[arg(long)]
+        generate: bool,
+    },
+
+    /// BPF verifier simulation & DPI evasion analysis
+    Bpf {
+        /// Run verifier on sample XDP programs
+        #[arg(long)]
+        verify: bool,
+
+        /// Show DPI evasion technique matrix
+        #[arg(long)]
+        dpi: bool,
+
+        /// Calculate sk_buff elimination savings
+        #[arg(long, value_name = "PACKETS")]
+        skbuff: Option<u64>,
+    },
+
+    /// PCIe bottleneck quantifier & CUDA memory analysis
+    Pcie {
+        /// Compare all memory paradigms
+        #[arg(long)]
+        compare: bool,
+
+        /// Data transfer size in GB
+        #[arg(long, default_value = "1")]
+        size_gb: u64,
+
+        /// Simulate LLM layer offloading
+        #[arg(long, value_name = "LAYERS")]
+        offload: Option<usize>,
+
+        /// Use Grace Hopper (NVLink-C2C) profile
+        #[arg(long)]
+        grace_hopper: bool,
+    },
+
+    /// Request hedging & fragmented cache engine
+    Hedge {
+        /// Run hedging benchmark
+        #[arg(long)]
+        bench: bool,
+
+        /// Number of requests to hedge
+        #[arg(long, default_value = "10000")]
+        requests: u64,
+
+        /// Demo fragmented cache delivery
+        #[arg(long)]
+        cache_demo: bool,
+    },
+
+    /// mmap-backed SPSC ring buffer IPC benchmark
+    MmapIpc {
+        /// Run IPC throughput benchmark
+        #[arg(long)]
+        bench: bool,
+
+        /// Ring buffer capacity (slots)
+        #[arg(long, default_value = "4096")]
+        capacity: usize,
+
+        /// Message size in bytes
+        #[arg(long, default_value = "256")]
+        msg_size: usize,
+
+        /// Show FFI comparison table
+        #[arg(long)]
+        compare: bool,
+    },
 }
 
 fn main() -> Result<()> {
@@ -468,7 +802,7 @@ fn handle_subcommand(command: Commands) -> Result<()> {
 
             w.watch(|nm_path| {
                 let rules = rules::PruneRules::new();
-                let scan_result = scanner::scan_node_modules(nm_path, &rules)?;
+                let scan_result = scanner::scan_node_modules(nm_path, &rules, None)?;
                 display::print_discovery(&scan_result);
                 display::print_simulation(&scan_result);
                 Ok(())
@@ -685,7 +1019,7 @@ fn handle_subcommand(command: Commands) -> Result<()> {
 
             // Build treemap data from scanning
             let rules = rules::PruneRules::new();
-            let scan_result = scanner::scan_node_modules(&nm_path, &rules)?;
+            let scan_result = scanner::scan_node_modules(&nm_path, &rules, None)?;
 
             if treemap || (!treemap && !sparklines) {
                 // Group candidates by category for treemap
@@ -767,6 +1101,1133 @@ fn handle_subcommand(command: Commands) -> Result<()> {
                 );
             }
         }
+
+        Commands::Analyze { path } => {
+            let target = std::fs::canonicalize(&path)?;
+            let nm_path = target.join("node_modules");
+            if !nm_path.exists() {
+                println!(
+                    "  {} No node_modules found at {}",
+                    style("✗").red().bold(),
+                    style(target.display()).dim()
+                );
+                return Ok(());
+            }
+            let analysis = analyzer::analyze_project(&nm_path)?;
+            analyzer::print_analysis(&analysis);
+
+            // Also show strategy recommendations
+            let engine = strategy::StrategyEngine::new();
+            let profiles: Vec<strategy::PackageProfile> = analysis.package_analyses.iter()
+                .map(|a| strategy::PackageProfile {
+                    name: a.name.clone(),
+                    file_count: a.file_count as i64,
+                    total_size: a.total_size,
+                    has_package_json: true,
+                    has_native_bindings: a.has_native,
+                    is_scoped: a.name.starts_with('@'),
+                    is_cached: false,
+                    framework: a.frameworks.first().map(|f| f.label().to_string()),
+                    previous_scan_time: None,
+                })
+                .collect();
+
+            let strategies = engine.select_batch(&profiles);
+            let summary = engine.strategy_summary(&strategies);
+            summary.print();
+        }
+
+        Commands::DistCache { stats, clear, evict } => {
+            if clear {
+                let mut cache = distributed_cache::DistributedCache::with_defaults()?;
+                cache.clear()?;
+                println!("  {} Distributed cache cleared.", style("✓").green().bold());
+            } else if evict {
+                let mut cache = distributed_cache::DistributedCache::with_defaults()?;
+                let evicted = cache.evict_expired()?;
+                println!(
+                    "  {} Evicted {} expired entries.",
+                    style("✓").green().bold(),
+                    evicted
+                );
+            } else {
+                // Default: show stats
+                let cache = distributed_cache::DistributedCache::with_defaults()?;
+                distributed_cache::print_cache_info(&cache);
+            }
+        }
+
+        Commands::Xdp { compare, bench, packets, obfuscation } => {
+            use xdp_middleware::*;
+            println!("  {} {}", style("eBPF/XDP Network Middleware").cyan().bold(),
+                style("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━").dim());
+
+            if compare {
+                print_architecture_comparison();
+            }
+
+            if bench {
+                let obfs_mode = match obfuscation.as_str() {
+                    "udp-to-tcp" | "udp" => ObfuscationMode::UdpToTcp,
+                    "xor" => ObfuscationMode::XorScramble,
+                    "tls" => ObfuscationMode::TlsMimicry,
+                    "http" => ObfuscationMode::HttpInject,
+                    _ => ObfuscationMode::None,
+                };
+
+                println!("  {} Running XDP benchmark: {} packets, obfuscation: {}",
+                    style("⚡").yellow(), style(packets).green().bold(),
+                    style(obfs_mode.label()).white());
+
+                let config = XdpLoadBalancerConfig::default();
+                let cp = XdpControlPlane::new(config);
+                let start = std::time::Instant::now();
+
+                // Simulate packet processing
+                let dummy_packet = vec![0u8; 1500]; // Standard MTU
+                for _ in 0..packets {
+                    cp.inject_live_frame(&dummy_packet, "eth0");
+                }
+
+                let elapsed = start.elapsed();
+                let pps = packets as f64 / elapsed.as_secs_f64();
+                let gbps = (packets as f64 * 1500.0 * 8.0) / (elapsed.as_secs_f64() * 1e9);
+
+                println!();
+                println!("  {} Throughput: {} Mpps",
+                    style("🚀").yellow(), style(format!("{:.2}", pps / 1e6)).green().bold());
+                println!("  {} Bandwidth: {} Gbps",
+                    style("🚀").yellow(), style(format!("{:.2}", gbps)).green().bold());
+                println!("  {} Elapsed:   {} ms",
+                    style("▸").dim(), style(format!("{:.2}", elapsed.as_secs_f64() * 1000.0)).white());
+
+                // XOR scramble demo
+                if obfs_mode == ObfuscationMode::XorScramble {
+                    let mut payload = b"Hello, XDP!".to_vec();
+                    println!("  {} XOR scramble demo:", style("▸").dim());
+                    println!("    Original:   {:?}", std::str::from_utf8(&payload).unwrap());
+                    XdpControlPlane::xor_scramble(&mut payload, 0xDEADBEEF);
+                    println!("    Scrambled:  {:02x?}", &payload);
+                    XdpControlPlane::xor_scramble(&mut payload, 0xDEADBEEF);
+                    println!("    Recovered:  {:?}", std::str::from_utf8(&payload).unwrap());
+                }
+
+                println!();
+            }
+
+            if !compare && !bench {
+                print_architecture_comparison();
+                println!("  {} Use {} for packet benchmark",
+                    style("→").dim(), style("jatin-lean xdp --bench").yellow());
+                println!("  {} Use {} for obfuscation modes",
+                    style("→").dim(), style("--obfuscation udp-to-tcp|xor|tls|http").yellow());
+            }
+        }
+
+        Commands::Ipc { bench, capacity, messages, layout } => {
+            use shared_memory_ipc::*;
+            println!("  {} {}", style("Lock-Free Shared Memory IPC").cyan().bold(),
+                style("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━").dim());
+
+            if layout {
+                println!();
+                println!("  {} Memory Layout:", style("📐").yellow());
+                println!("    Cache line size:       {} bytes", CACHE_LINE_SIZE);
+                println!("    AlignedAtomicIndex:    {} bytes (aligned to {})",
+                    std::mem::size_of::<AlignedAtomicIndex>(), std::mem::align_of::<AlignedAtomicIndex>());
+                println!("    SpscRingHeader:        {} bytes",
+                    std::mem::size_of::<SpscRingHeader>());
+                println!("    MessageSlot:           {} bytes ({}KB)",
+                    MessageSlot::SIZE, MessageSlot::SIZE / 1024);
+                println!("    Max payload per slot:  {} bytes", MessageSlot::MAX_PAYLOAD);
+                let region_size = SharedMemoryRegion::required_size(capacity, MessageSlot::SIZE);
+                println!("    Shared memory needed:  {} bytes ({:.1} MB) for {} slots",
+                    region_size, region_size as f64 / (1024.0 * 1024.0), capacity);
+                println!();
+            }
+
+            if bench {
+                println!("  {} SPSC Ring Buffer Benchmark: {} msgs, {} slots",
+                    style("⚡").yellow(),
+                    style(messages).green().bold(),
+                    style(capacity).white());
+
+                let ring = SpscIpcRing::new(capacity);
+                let payload = b"benchmark-payload-data-for-ipc-testing-12345678";
+                let start = std::time::Instant::now();
+
+                for i in 0..messages {
+                    // Push with wraparound (pop to keep space)
+                    while ring.push(1, payload).is_err() {
+                        ring.pop();
+                    }
+                    if i % 2 == 0 { ring.pop(); }
+                }
+                // Drain remaining
+                while ring.pop().is_some() {}
+
+                let elapsed = start.elapsed();
+                print_ipc_report(&ring.stats, elapsed);
+
+                println!("  {} Total elapsed: {:.2} ms",
+                    style("▸").dim(), elapsed.as_secs_f64() * 1000.0);
+                println!("  {} Ops/sec: {:.0}",
+                    style("🚀").yellow(),
+                    messages as f64 / elapsed.as_secs_f64());
+                println!();
+            }
+
+            if !bench && !layout {
+                println!();
+                println!("  {} Use {} for memory layout info",
+                    style("→").dim(), style("jatin-lean ipc --layout").yellow());
+                println!("  {} Use {} for throughput benchmark",
+                    style("→").dim(), style("jatin-lean ipc --bench").yellow());
+                println!();
+            }
+        }
+
+        Commands::Serde { bench, entities, iterations, compare } => {
+            use zero_copy_serde::*;
+            println!("  {} {}", style("Zero-Copy Serialization Engine").cyan().bold(),
+                style("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━").dim());
+
+            if compare {
+                let table = benchmark_table();
+                println!();
+                for b in &table {
+                    let mutation = if b.supports_mutation { style("✓").green() } else { style("✗").red() };
+                    println!("  {} {} | {} | {} | Mutation: {}",
+                        style("▸").dim(), style(b.framework).yellow().bold(),
+                        style(b.access_latency).white(),
+                        style(b.deser_speed).dim(),
+                        mutation);
+                }
+                println!();
+            }
+
+            if bench {
+                println!("  {} Benchmark: {} entities × {} iterations",
+                    style("⚡").yellow(),
+                    style(entities).green().bold(),
+                    style(iterations).white());
+
+                let mut engine = ZeroCopyEngine::new();
+                let response = ZeroCopyEngine::sample_response(entities);
+
+                // Warmup
+                let bytes = engine.serialize(&response);
+                let _ = engine.deserialize_from(&bytes);
+                engine.stats = SerdeStats::default();
+
+                // rkyv serialize
+                let start = std::time::Instant::now();
+                let mut last_bytes = Vec::new();
+                for _ in 0..iterations {
+                    last_bytes = engine.serialize(&response);
+                }
+                let ser_time = start.elapsed();
+
+                // rkyv deserialize
+                let start = std::time::Instant::now();
+                for _ in 0..iterations {
+                    let _ = engine.deserialize_from(&last_bytes);
+                }
+                let deser_time = start.elapsed();
+
+                // JSON serialize
+                let start = std::time::Instant::now();
+                let mut json_str = String::new();
+                for _ in 0..iterations {
+                    json_str = ZeroCopyEngine::to_json(&response);
+                }
+                let json_ser_time = start.elapsed();
+
+                // JSON parse
+                let start = std::time::Instant::now();
+                for _ in 0..iterations {
+                    let _ = engine.parse_json(&json_str);
+                }
+                let json_parse_time = start.elapsed();
+
+                // Zero-copy access
+                let start = std::time::Instant::now();
+                for _ in 0..iterations {
+                    let _ = ZeroCopyEngine::access_archived(&last_bytes);
+                }
+                let access_time = start.elapsed();
+
+                println!();
+                println!("  {} rkyv serialize:    {:.0} ns/op ({} bytes)",
+                    style("⚡").yellow(),
+                    ser_time.as_nanos() as f64 / iterations as f64,
+                    last_bytes.len());
+                println!("  {} rkyv deserialize:  {:.0} ns/op",
+                    style("⚡").yellow(),
+                    deser_time.as_nanos() as f64 / iterations as f64);
+                println!("  {} rkyv zero-copy:    {:.0} ns/op",
+                    style("🚀").green(),
+                    access_time.as_nanos() as f64 / iterations as f64);
+                println!("  {} JSON serialize:    {:.0} ns/op ({} bytes)",
+                    style("▸").dim(),
+                    json_ser_time.as_nanos() as f64 / iterations as f64,
+                    json_str.len());
+                println!("  {} JSON parse:        {:.0} ns/op",
+                    style("▸").dim(),
+                    json_parse_time.as_nanos() as f64 / iterations as f64);
+
+                let ser_speedup = json_ser_time.as_nanos() as f64 / ser_time.as_nanos().max(1) as f64;
+                let deser_speedup = json_parse_time.as_nanos() as f64 / deser_time.as_nanos().max(1) as f64;
+                println!();
+                println!("  {} Serialize speedup:  {}x faster than JSON",
+                    style("🚀").yellow(), style(format!("{:.1}", ser_speedup)).green().bold());
+                println!("  {} Deserialize speedup: {}x faster than JSON",
+                    style("🚀").yellow(), style(format!("{:.1}", deser_speedup)).green().bold());
+                println!("  {} Size savings:        {} bytes vs {} bytes ({:.0}% smaller)",
+                    style("📦").yellow(),
+                    style(last_bytes.len()).green().bold(),
+                    style(json_str.len()).dim(),
+                    (1.0 - last_bytes.len() as f64 / json_str.len() as f64) * 100.0);
+                println!();
+            }
+
+            if !bench && !compare {
+                println!();
+                println!("  {} Use {} for framework comparison",
+                    style("→").dim(), style("jatin-lean serde --compare").yellow());
+                println!("  {} Use {} for serialization benchmark",
+                    style("→").dim(), style("jatin-lean serde --bench").yellow());
+                println!();
+            }
+        }
+
+        Commands::Coalesce { demo, requests, keys, cache_stats } => {
+            use request_coalescing::*;
+            println!("  {} {}", style("Request Coalescing Engine").cyan().bold(),
+                style("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━").dim());
+
+            if demo || !cache_stats {
+                println!("  {} Singleflight demo: {} requests across {} unique keys",
+                    style("⚡").yellow(),
+                    style(requests).green().bold(),
+                    style(keys).white());
+
+                let sf = SingleflightGroup::<String>::new();
+                let start = std::time::Instant::now();
+
+                for i in 0..requests {
+                    let key = format!("/api/resource/{}", i % keys);
+                    sf.do_once(&key, || {
+                        format!("response-for-key-{}", i % keys)
+                    });
+                }
+
+                let elapsed = start.elapsed();
+                print_coalescing_report(&sf.stats);
+
+                println!("  {} Elapsed:           {:.2} ms",
+                    style("▸").dim(), elapsed.as_secs_f64() * 1000.0);
+                println!("  {} Requests/sec:      {:.0}",
+                    style("🚀").yellow(),
+                    requests as f64 / elapsed.as_secs_f64());
+                println!();
+
+                // JSONPath demo
+                println!("  {} JSONPath Query Demo:", style("🔍").yellow());
+                let json: serde_json::Value = serde_json::json!({
+                    "data": {
+                        "users": [
+                            { "name": "Alice", "email": "alice@example.com", "role": "admin" },
+                            { "name": "Bob", "email": "bob@example.com", "role": "user" }
+                        ],
+                        "meta": { "total": 2, "page": 1 }
+                    }
+                });
+                let paths = vec!["$.data.users[0].name", "$.data.users[1].email", "$.data.meta.total"];
+                for p in &paths {
+                    let expr = JsonPathExpr::parse(p);
+                    if let Some(val) = expr.extract(&json) {
+                        println!("    {} → {}", style(p).yellow(), style(val).green());
+                    }
+                }
+
+                // Request merger demo
+                println!();
+                println!("  {} Request Merger Demo:", style("🔀").yellow());
+                let merger = RequestMerger::new(std::time::Duration::from_millis(10));
+                merger.submit(MergeableRequest {
+                    client_id: "Client-A".into(), resource_path: "/api/users/1".into(),
+                    requested_fields: vec!["name".into(), "email".into()],
+                    arrived_at: std::time::Instant::now(),
+                });
+                merger.submit(MergeableRequest {
+                    client_id: "Client-B".into(), resource_path: "/api/users/1".into(),
+                    requested_fields: vec!["email".into(), "role".into()],
+                    arrived_at: std::time::Instant::now(),
+                });
+                let merged = merger.flush();
+                for q in &merged {
+                    println!("    {} clients → superset: {:?}",
+                        style(q.client_count).green().bold(),
+                        q.superset_fields);
+                }
+                println!();
+            }
+
+            if cache_stats {
+                let cache = StructuralCache::new(std::time::Duration::from_secs(60));
+                let mut fields = std::collections::HashMap::new();
+                fields.insert("name".to_string(), serde_json::json!("Alice"));
+                fields.insert("email".to_string(), serde_json::json!("alice@example.com"));
+                fields.insert("role".to_string(), serde_json::json!("admin"));
+                cache.store_fields("/api/users/1", fields);
+
+                let (found, missing) = cache.get_fields("/api/users/1",
+                    &["name".to_string(), "email".to_string(), "phone".to_string()]);
+                println!();
+                println!("  {} Structural Cache Demo:", style("📊").yellow());
+                println!("    Requested: [name, email, phone]");
+                println!("    Found:     {} fields (partial hit)", style(found.len()).green().bold());
+                println!("    Missing:   {:?}", missing);
+                println!("    Hit rate:  {:.1}%", cache.stats.hit_rate());
+                println!("    Stored:    {} total fields", cache.total_fields());
+                println!();
+            }
+        }
+
+        Commands::Engine { analyze, grace_hopper, compare, bench } => {
+            use adaptive_engine::*;
+            println!("  {} {}", style("Adaptive CPU-GPU Execution Engine").cyan().bold(),
+                style("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━").dim());
+
+            if compare {
+                println!();
+                let paradigms = [
+                    MemoryParadigm::PageableSystemMemory,
+                    MemoryParadigm::PinnedMemory,
+                    MemoryParadigm::SoftwareCoherentUnified,
+                    MemoryParadigm::HardwareCoherentUnified,
+                ];
+                for p in &paradigms {
+                    println!("  {} {} | {} | {} | {}",
+                        style("▸").dim(), style(p.label()).yellow().bold(),
+                        style(p.bandwidth()).white(),
+                        style(p.setup_complexity()).dim(),
+                        style(p.optimal_hardware()).cyan());
+                }
+                println!();
+            }
+
+            let hw = if grace_hopper {
+                println!("  {} Simulating NVIDIA Grace Hopper GH200 environment",
+                    style("🖥️").yellow());
+                HardwareState::simulated_grace_hopper()
+            } else {
+                HardwareState::detect()
+            };
+            let engine = AdaptiveEngine::with_hardware(hw.clone());
+
+            if analyze || bench {
+                let workloads = vec![
+                    WorkloadProfile {
+                        id: "regex-parser".into(), data_size_bytes: 50 * 1024 * 1024,
+                        estimated_flops: 5_000_000, parallelizable: false,
+                        string_heavy: true, matrix_heavy: false,
+                        branch_divergent: true, memory_required_bytes: 50 * 1024 * 1024,
+                        workload_type: WorkloadType::StringProcessing,
+                    },
+                    WorkloadProfile {
+                        id: "matmul-4096".into(), data_size_bytes: 128 * 1024 * 1024,
+                        estimated_flops: 1_000_000_000, parallelizable: true,
+                        string_heavy: false, matrix_heavy: true,
+                        branch_divergent: false, memory_required_bytes: 128 * 1024 * 1024,
+                        workload_type: WorkloadType::MatrixComputation,
+                    },
+                    WorkloadProfile {
+                        id: "embeddings".into(), data_size_bytes: 512 * 1024 * 1024,
+                        estimated_flops: 500_000_000, parallelizable: true,
+                        string_heavy: false, matrix_heavy: true,
+                        branch_divergent: false, memory_required_bytes: 512 * 1024 * 1024,
+                        workload_type: WorkloadType::VectorEmbedding,
+                    },
+                    WorkloadProfile {
+                        id: "llm-70b".into(),
+                        data_size_bytes: 140u64 * 1024 * 1024 * 1024,
+                        estimated_flops: 10_000_000_000, parallelizable: true,
+                        string_heavy: false, matrix_heavy: true,
+                        branch_divergent: false,
+                        memory_required_bytes: 140u64 * 1024 * 1024 * 1024,
+                        workload_type: WorkloadType::LlmInference,
+                    },
+                    WorkloadProfile {
+                        id: "data-aggregate".into(), data_size_bytes: 2 * 1024 * 1024,
+                        estimated_flops: 100_000, parallelizable: true,
+                        string_heavy: false, matrix_heavy: false,
+                        branch_divergent: false, memory_required_bytes: 2 * 1024 * 1024,
+                        workload_type: WorkloadType::DataAggregation,
+                    },
+                ];
+
+                println!();
+                for w in &workloads {
+                    let result = engine.execute(w);
+                    println!("  {} {} → {} {} (speedup: {}x, reason: {})",
+                        result.target.icon(),
+                        style(&w.id).white().bold(),
+                        result.target.label(),
+                        style("").dim(),
+                        style(format!("{:.0}", result.estimated_speedup)).green().bold(),
+                        style(&result.decision_reason).dim());
+                }
+
+                println!();
+                print_engine_report(&engine.stats, &engine.hardware);
+            }
+
+            if !analyze && !bench && !compare {
+                print_engine_report(&engine.stats, &engine.hardware);
+                println!("  {} Use {} for workload routing analysis",
+                    style("→").dim(), style("jatin-lean engine --analyze").yellow());
+                println!("  {} Use {} for Grace Hopper simulation",
+                    style("→").dim(), style("jatin-lean engine --grace-hopper --analyze").yellow());
+                println!();
+            }
+        }
+
+        Commands::Gateway { bench, requests, payload_size } => {
+            use unified_gateway::*;
+            println!("  {} {}", style("Unified Gateway Pipeline").cyan().bold(),
+                style("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━").dim());
+
+            let gw = UnifiedGateway::new();
+
+            if bench {
+                println!("  {} Benchmark: {} requests × {} byte payloads",
+                    style("⚡").yellow(), style(requests).green().bold(),
+                    style(payload_size).white());
+                let result = gw.benchmark(requests, payload_size);
+                println!();
+                println!("  {} RPS:         {}", style("🚀").yellow(),
+                    style(format!("{:.0}", result.rps)).green().bold());
+                println!("  {} Avg latency: {:.0} ns", style("⚡").yellow(), result.avg_latency_ns);
+                println!("  {} Elapsed:     {:.2} ms", style("▸").dim(),
+                    result.elapsed.as_secs_f64() * 1000.0);
+                for (stage, ns) in &result.stage_latencies {
+                    println!("    {} {} → {:.0} ns", stage.icon(), stage.label(), ns);
+                }
+            }
+
+            println!();
+            print_gateway_report(&gw);
+        }
+
+        Commands::SimdJson { file, input, keys, merge_patch } => {
+            use simd_json::*;
+            println!("  {} {}", style("SIMD JSON Structural Scanner").cyan().bold(),
+                style("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━").dim());
+
+            let scanner = SimdJsonScanner::new();
+            println!("  {} SIMD width: {} bytes/chunk", style("▸").dim(), scanner.chunk_size);
+
+            let json_bytes = if let Some(ref path) = file {
+                std::fs::read(path).unwrap_or_default()
+            } else if let Some(ref s) = input {
+                s.as_bytes().to_vec()
+            } else {
+                // Demo JSON
+                serde_json::to_vec_pretty(&serde_json::json!({
+                    "project": "jatin-lean",
+                    "version": "0.5.0",
+                    "features": ["xdp", "ipc", "rkyv", "coalescing", "gpu"],
+                    "stats": {"modules": 40, "tests": 230, "loc": 15000}
+                })).unwrap()
+            };
+
+            let scan = scanner.scan(&json_bytes);
+            print_simd_report(&scan);
+
+            if keys {
+                let extracted = scanner.extract_keys(&json_bytes, &scan);
+                println!("  {} Extracted {} keys:", style("🔑").yellow(), extracted.len());
+                for k in &extracted {
+                    println!("    {} {}", style("→").dim(), style(k).yellow());
+                }
+                println!();
+            }
+
+            if merge_patch {
+                println!("  {} JSON Merge Patch (RFC 7396) Demo:", style("🔀").yellow());
+                let mut original = serde_json::json!({"name":"Alice","age":30,"city":"NYC"});
+                let patch = serde_json::json!({"age":31,"city":null,"role":"admin"});
+                println!("    Original: {}", serde_json::to_string(&original).unwrap());
+                println!("    Patch:    {}", serde_json::to_string(&patch).unwrap());
+                json_merge_patch(&mut original, &patch);
+                println!("    Result:   {}", style(serde_json::to_string(&original).unwrap()).green());
+                println!();
+            }
+        }
+
+        Commands::Arena { bench, capacity_kb, allocations } => {
+            use memory_pool::*;
+            println!("  {} {}", style("Arena Memory Pool Allocator").cyan().bold(),
+                style("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━").dim());
+
+            let capacity = capacity_kb * 1024;
+            let arena = memory_pool::Arena::new(capacity);
+
+            if bench {
+                println!("  {} Benchmark: {} allocations in {} KB arena",
+                    style("⚡").yellow(), style(allocations).green().bold(),
+                    style(capacity_kb).white());
+
+                let start = std::time::Instant::now();
+                let mut success = 0u64;
+                for _ in 0..allocations {
+                    if arena.alloc(32, 8).is_some() { success += 1; }
+                }
+                let elapsed = start.elapsed();
+
+                println!("  {} Successful: {}/{}", style("▸").dim(), success, allocations);
+                println!("  {} Elapsed:    {:.2} ms", style("▸").dim(),
+                    elapsed.as_secs_f64() * 1000.0);
+                println!("  {} Allocs/sec: {:.0}", style("🚀").yellow(),
+                    success as f64 / elapsed.as_secs_f64());
+                println!("  {} Avg alloc:  {:.0} ns", style("⚡").yellow(),
+                    elapsed.as_nanos() as f64 / success.max(1) as f64);
+
+                // Compare: TypedPool benchmark
+                arena.reset();
+                let pool = TypedPool::<ScanEntry>::new(allocations as usize);
+                let start2 = std::time::Instant::now();
+                for i in 0..allocations {
+                    pool.alloc_init(ScanEntry::new(&format!("file-{}.js", i), 1024, true, 1, 2));
+                }
+                let elapsed2 = start2.elapsed();
+                println!("  {} TypedPool:  {:.0} ns/alloc",
+                    style("⚡").yellow(), elapsed2.as_nanos() as f64 / allocations as f64);
+            }
+
+            println!();
+            print_arena_report(&arena);
+        }
+
+        Commands::Maglev { backends, table_size, analyze, disruption } => {
+            use maglev::*;
+            println!("  {} {}", style("Maglev Consistent Hash Ring").cyan().bold(),
+                style("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━").dim());
+
+            let backend_list: Vec<String> = backends.split(',')
+                .map(|s| s.trim().to_string()).collect();
+
+            let mut ring = MaglevHashRing::new(backend_list, table_size);
+
+            if analyze {
+                // Run lookup benchmark
+                let start = std::time::Instant::now();
+                for i in 0..100_000 {
+                    ring.lookup(&format!("key-{}", i));
+                }
+                let elapsed = start.elapsed();
+                println!("  {} 100K lookups: {:.2} ms ({:.0} ns/lookup)",
+                    style("⚡").yellow(), elapsed.as_secs_f64() * 1000.0,
+                    elapsed.as_nanos() as f64 / 100_000.0);
+            }
+
+            if let Some(ref removed) = disruption {
+                let rate = ring.disruption_rate(removed);
+                println!("  {} Disruption when removing '{}': {:.1}%",
+                    style("⚠").yellow(), style(removed).red(), rate);
+                let ideal = 100.0 / ring.backends.len() as f64;
+                println!("  {} Ideal disruption: {:.1}% | Overhead: {:.1}%",
+                    style("▸").dim(), ideal, rate - ideal);
+            }
+
+            print_maglev_report(&ring);
+        }
+
+        Commands::IoUring { bench, files, compare, nvme } => {
+            use io_uring::*;
+            println!("  {} {}", style("io_uring Async I/O Engine").cyan().bold(),
+                style("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━").dim());
+
+            let config = if nvme {
+                println!("  {} NVMe-optimized mode", style("⚡").yellow());
+                IoUringConfig::nvme_optimized()
+            } else {
+                IoUringConfig::scan_optimized()
+            };
+
+            if compare {
+                let table = io_api_comparison();
+                println!();
+                for entry in &table {
+                    let bypass = if entry.kernel_bypass { style("✓").green() } else { style("✗").red() };
+                    let zc = if entry.zero_copy { style("✓").green() } else { style("✗").red() };
+                    println!("  {} {} | Syscalls: {} | Bypass: {} | ZeroCopy: {}",
+                        style("▸").dim(), style(entry.api).yellow(),
+                        entry.syscalls_per_op, bypass, zc);
+                    println!("    Best for: {}", style(entry.best_for).dim());
+                }
+                println!();
+            }
+
+            if bench {
+                let mut engine = IoUringEngine::new(config.clone());
+                let paths: Vec<std::path::PathBuf> = (0..files)
+                    .map(|i| std::path::PathBuf::from(format!("node_modules/pkg-{}/index.js", i)))
+                    .collect();
+
+                println!("  {} Benchmark: {} batched stat operations", style("⚡").yellow(),
+                    style(files).green().bold());
+
+                let start = std::time::Instant::now();
+                // Submit in batches of SQ depth
+                let batch_size = config.sq_depth as usize;
+                for chunk in paths.chunks(batch_size) {
+                    engine.submit_stat_batch(&chunk.to_vec());
+                    engine.flush();
+                }
+                let elapsed = start.elapsed();
+
+                print_iouring_report(&engine.stats, &config, elapsed);
+
+                let traditional_syscalls = files;
+                let uring_syscalls = engine.stats.batches.load(std::sync::atomic::Ordering::Relaxed);
+                println!("  {} Traditional: {} syscalls | io_uring: {} syscalls ({}x reduction)",
+                    style("🚀").yellow(),
+                    style(traditional_syscalls).red(),
+                    style(uring_syscalls).green().bold(),
+                    style(format!("{:.0}", traditional_syscalls as f64 / uring_syscalls.max(1) as f64)).green().bold());
+                println!();
+            }
+
+            if !bench && !compare {
+                println!();
+                println!("  {} Use {} for benchmark", style("→").dim(),
+                    style("jatin-lean io-uring --bench").yellow());
+                println!("  {} Use {} for API comparison", style("→").dim(),
+                    style("jatin-lean io-uring --compare").yellow());
+                println!();
+            }
+        }
+
+        Commands::CpuCache { bench, working_set_kb, info, tlb } => {
+            use cpu_cache::*;
+            println!("  {} {}", style("CPU Cache Optimization Engine").cyan().bold(),
+                style("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━").dim());
+
+            let hierarchy = CacheHierarchy::detect();
+
+            if info {
+                println!();
+                println!("  {} Detected Cache Hierarchy:", style("🖥️").yellow());
+                println!("    L1D:     {}KB ({:.0}ns)", hierarchy.l1d_size / 1024, hierarchy.l1d_latency_ns);
+                println!("    L1I:     {}KB", hierarchy.l1i_size / 1024);
+                println!("    L2:      {}KB ({:.0}ns)", hierarchy.l2_size / 1024, hierarchy.l2_latency_ns);
+                println!("    L3:      {}MB ({:.0}ns)", hierarchy.l3_size / 1024 / 1024, hierarchy.l3_latency_ns);
+                println!("    Main:    {:.0}ns", hierarchy.main_memory_ns);
+                println!("    Line:    {}B | TLB: {} entries", hierarchy.cache_line_size, hierarchy.tlb_entries);
+                println!("    Items/L1: {} (64B) | Items/L2: {} | Items/L3: {}",
+                    hierarchy.l1_items(64), hierarchy.l2_items(64), hierarchy.l3_items(64));
+                println!();
+            }
+
+            if bench {
+                let item_count = working_set_kb * 1024 / 8; // 8 bytes per u64
+                println!("  {} Prefetch benchmark: {} items ({} KB working set)",
+                    style("⚡").yellow(), style(item_count).green().bold(),
+                    style(working_set_kb).white());
+
+                let data: Vec<u64> = (0..item_count as u64).collect();
+
+                // Without prefetch
+                let start = std::time::Instant::now();
+                let mut sum = 0u64;
+                for &v in &data { sum = sum.wrapping_add(v); }
+                let no_prefetch = start.elapsed();
+                std::hint::black_box(sum);
+
+                // With prefetch
+                let start = std::time::Instant::now();
+                let stats = scan_with_prefetch(&data, 16, |&x| {
+                    sum = sum.wrapping_add(x);
+                    true
+                });
+                let with_prefetch = start.elapsed();
+                std::hint::black_box(sum);
+
+                println!();
+                println!("  {} Without prefetch: {:.2} ms ({:.0} ns/item)",
+                    style("▸").dim(), no_prefetch.as_secs_f64() * 1000.0,
+                    no_prefetch.as_nanos() as f64 / item_count as f64);
+                println!("  {} With prefetch:    {:.2} ms ({:.0} ns/item)",
+                    style("⚡").yellow(), with_prefetch.as_secs_f64() * 1000.0,
+                    with_prefetch.as_nanos() as f64 / item_count as f64);
+                let speedup = no_prefetch.as_nanos() as f64 / with_prefetch.as_nanos().max(1) as f64;
+                println!("  {} Speedup: {}x",
+                    style("🚀").yellow(), style(format!("{:.2}", speedup)).green().bold());
+
+                print_cache_report(&hierarchy, &stats);
+            }
+
+            if tlb {
+                let ws_bytes = working_set_kb * 1024;
+                let info = analyze_tlb(ws_bytes);
+                println!();
+                println!("  {} TLB Analysis for {} KB working set:", style("📊").yellow(),
+                    working_set_kb);
+                println!("    4KB pages needed:    {}", info.pages_4k);
+                println!("    2MB hugepages needed:{}", info.pages_2m);
+                println!("    TLB coverage (4KB):  {:.1}%", info.tlb_coverage_standard);
+                println!("    TLB coverage (2MB):  {:.1}%", info.tlb_coverage_huge);
+                println!("    Recommend hugepages: {}",
+                    if info.recommend_huge_pages { style("YES").green().bold() }
+                    else { style("no").dim() });
+                println!();
+            }
+
+            if !bench && !info && !tlb {
+                println!();
+                println!("  {} Use {} for cache hierarchy info", style("→").dim(),
+                    style("jatin-lean cpu-cache --info").yellow());
+                println!("  {} Use {} for prefetch benchmark", style("→").dim(),
+                    style("jatin-lean cpu-cache --bench").yellow());
+                println!();
+            }
+        }
+
+        Commands::Optimize { assess, numa, network, kernel, generate } => {
+            use hardware_tuning::*;
+            println!("  {} {}", style("System Hardware Optimization").cyan().bold(),
+                style("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━").dim());
+
+            if numa {
+                let topo = NumaTopology::detect();
+                println!();
+                println!("  {} NUMA Topology:", style("🖥️").yellow());
+                println!("    Nodes: {} | Cores: {} | NUMA: {}",
+                    topo.nodes.len(), topo.total_cores,
+                    if topo.is_numa { style("YES").green().bold() } else { style("no").dim() });
+                for node in &topo.nodes {
+                    println!("    Node {}: {} CPUs, {} MB total ({} MB free)",
+                        node.id, node.cpu_list.len(), node.memory_total_mb, node.memory_free_mb);
+                }
+                println!();
+            }
+
+            if network {
+                let tuning = NetworkTuning::default();
+                println!();
+                println!("  {} Recommended Network Settings:", style("🌐").yellow());
+                println!("    TCP_NODELAY:      {}", if tuning.tcp_nodelay { "✓" } else { "✗" });
+                println!("    TCP_QUICKACK:     {}", if tuning.tcp_quickack { "✓" } else { "✗" });
+                println!("    SO_REUSEPORT:     {}", if tuning.so_reuseport { "✓" } else { "✗" });
+                println!("    TCP_FASTOPEN:     {}", if tuning.tcp_fastopen { "✓" } else { "✗" });
+                println!("    Recv buffer:      {} MB", tuning.recv_buffer_size / 1024 / 1024);
+                println!("    Send buffer:      {} MB", tuning.send_buffer_size / 1024 / 1024);
+                println!("    somaxconn:        {}", tuning.somaxconn);
+                println!("    FIN timeout:      {}s", tuning.tcp_fin_timeout);
+                println!();
+            }
+
+            if kernel {
+                let tuning = KernelTuning::scan_optimized();
+                println!();
+                println!("  {} Kernel Parameters (scan-optimized):", style("🔧").yellow());
+                println!("    fs.file-max:        {}", tuning.fs_file_max);
+                println!("    inotify watches:    {}", tuning.fs_inotify_max_user_watches);
+                println!("    vm.dirty_ratio:     {}%", tuning.vm_dirty_ratio);
+                println!("    vm.swappiness:      {}", tuning.vm_swappiness);
+                println!("    vfs_cache_pressure: {}", tuning.vfs_cache_pressure);
+                println!("    THP:                {}", if tuning.transparent_hugepages { "enabled" } else { "disabled" });
+                println!();
+            }
+
+            if generate {
+                let net = NetworkTuning::default();
+                let kern = KernelTuning::scan_optimized();
+                println!();
+                println!("  {} Generated sysctl commands:", style("📜").yellow());
+                println!("  {} Copy and run with sudo:", style("▸").dim());
+                println!();
+                for cmd in net.to_sysctl_commands() {
+                    println!("    {}", style(&cmd).yellow());
+                }
+                for cmd in kern.to_sysctl_commands() {
+                    println!("    {}", style(&cmd).yellow());
+                }
+                println!();
+            }
+
+            if assess || (!numa && !network && !kernel && !generate) {
+                let assessment = assess_system();
+                print_system_report(&assessment);
+            }
+        }
+
+        Commands::Bpf { verify, dpi, skbuff } => {
+            use bpf_verifier::*;
+            println!("  {} {}", style("BPF Verifier & DPI Engine").cyan().bold(),
+                style("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━").dim());
+
+            if verify {
+                let programs = vec![
+                    BpfProgram {
+                        name: "xdp_tunnel_ingress".into(),
+                        prog_type: BpfProgType::XdpIngress,
+                        instruction_count: 2_500,
+                        max_loop_depth: 256, call_depth: 3,
+                        map_accesses: 12, packet_accesses: 45, tail_calls: 2,
+                        helper_calls: vec!["bpf_xdp_adjust_head".into(), "bpf_map_lookup_elem".into()],
+                    },
+                    BpfProgram {
+                        name: "xdp_ddos_filter".into(),
+                        prog_type: BpfProgType::XdpIngress,
+                        instruction_count: 15_000,
+                        max_loop_depth: 1024, call_depth: 5,
+                        map_accesses: 30, packet_accesses: 80, tail_calls: 4,
+                        helper_calls: vec!["bpf_ktime_get_ns".into(), "bpf_map_update_elem".into()],
+                    },
+                    BpfProgram {
+                        name: "tc_protocol_obfuscator".into(),
+                        prog_type: BpfProgType::TcEgress,
+                        instruction_count: 800_000,
+                        max_loop_depth: 4096, call_depth: 6,
+                        map_accesses: 50, packet_accesses: 120, tail_calls: 8,
+                        helper_calls: vec!["bpf_skb_change_proto".into()],
+                    },
+                ];
+                for prog in &programs {
+                    let result = prog.verify();
+                    print_verifier_report(prog, &result);
+                }
+            }
+
+            if dpi {
+                println!();
+                println!("  {} DPI Evasion Matrix:", style("🛡️").yellow());
+                let methods = [DpiMethod::ProtocolWhitelist, DpiMethod::SniInspection,
+                    DpiMethod::PayloadSignature, DpiMethod::DnsFilter, DpiMethod::StatisticalAnalysis];
+                for evasion in DpiEvasion::all() {
+                    let bypassed: Vec<&str> = methods.iter()
+                        .filter(|m| evasion.bypasses(m))
+                        .map(|_| "✓")
+                        .collect();
+                    println!("    {} ({} overhead) — bypasses {} DPI methods",
+                        style(evasion.label()).yellow(),
+                        style(format!("{}B", evasion.overhead_bytes())).dim(),
+                        style(bypassed.len()).green().bold());
+                }
+                println!();
+            }
+
+            if let Some(packets) = skbuff {
+                let model = SkbuffModel::default();
+                let savings = model.savings(packets);
+                println!();
+                println!("  {} sk_buff Elimination for {} packets:", style("📊").yellow(),
+                    style(packets).green().bold());
+                println!("    CPU time saved:   {:.1} ms", savings.total_ns_saved / 1e6);
+                println!("    Memory saved:     {:.1} MB", savings.memory_bytes_saved as f64 / 1e6);
+                println!("    Cache pollution:  {:.1} MB avoided", savings.cache_bytes_saved as f64 / 1e6);
+                println!("    Throughput gain:  {:.1}%", savings.equivalent_throughput_gain_pct);
+                println!();
+            }
+
+            if !verify && !dpi && skbuff.is_none() {
+                println!();
+                println!("  {} Use {} for verifier", style("→").dim(),
+                    style("jatin-lean bpf --verify").yellow());
+                println!("  {} Use {} for DPI matrix", style("→").dim(),
+                    style("jatin-lean bpf --dpi").yellow());
+                println!("  {} Use {} for savings", style("→").dim(),
+                    style("jatin-lean bpf --skbuff 1000000").yellow());
+                println!();
+            }
+        }
+
+        Commands::Pcie { compare, size_gb, offload, grace_hopper } => {
+            use pcie_bottleneck::*;
+            println!("  {} {}", style("PCIe & CUDA Memory Analysis").cyan().bold(),
+                style("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━").dim());
+
+            let interconnect = if grace_hopper { PcieGen::NvLinkC2C } else { PcieGen::Gen5 };
+            let data_bytes = size_gb * 1024 * 1024 * 1024;
+
+            if compare {
+                let mem_types = [CudaMemoryType::Pageable, CudaMemoryType::Pinned,
+                    CudaMemoryType::UnifiedManaged, CudaMemoryType::HardwareCoherent];
+                let sims: Vec<TransferSimulation> = mem_types.iter()
+                    .map(|mt| simulate_transfer(*mt, interconnect, data_bytes))
+                    .collect();
+                print_pcie_report(&sims);
+            }
+
+            if let Some(num_layers) = offload {
+                let mut ctrl = if grace_hopper {
+                    VramOffloadController::grace_hopper()
+                } else {
+                    VramOffloadController::discrete_gpu()
+                };
+                let layers: Vec<(String, u64)> = (0..num_layers)
+                    .map(|i| (format!("transformer.layer.{}", i), 2u64 * 1024 * 1024 * 1024))
+                    .collect();
+                let plan = ctrl.place_layers(&layers);
+                print_offload_report(&plan);
+            }
+
+            if !compare && offload.is_none() {
+                let sim = simulate_transfer(
+                    if grace_hopper { CudaMemoryType::HardwareCoherent } else { CudaMemoryType::Pinned },
+                    interconnect, data_bytes);
+                println!();
+                println!("  {} {} via {} | {:.1} GB transfer",
+                    style("▸").dim(), style(sim.mem_type.label()).yellow(),
+                    sim.interconnect.label(), size_gb);
+                println!("  {} Time: {:.1} µs | BW: {:.1} GB/s | Latency: {:.0} ns",
+                    style("⚡").yellow(), sim.transfer_time_us,
+                    sim.effective_bandwidth_gbps, sim.first_access_latency_ns);
+                println!();
+            }
+        }
+
+        Commands::Hedge { bench, requests, cache_demo } => {
+            use hedging::*;
+            println!("  {} {}", style("Request Hedging & Fragmented Cache").cyan().bold(),
+                style("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━").dim());
+
+            if bench {
+                let engine = HedgingEngine::new(
+                    vec!["replica-us-east".into(), "replica-us-west".into(), "replica-eu".into()],
+                    HedgingStrategy::Immediate,
+                );
+                println!("  {} Hedging {} requests across {} replicas",
+                    style("⚡").yellow(), style(requests).green().bold(),
+                    engine.replicas.len());
+
+                let start = std::time::Instant::now();
+                for i in 0..requests {
+                    engine.execute(i, &format!("/api/resource/{}", i % 100));
+                }
+                let elapsed = start.elapsed();
+
+                println!("  {} Elapsed: {:.2} ms | RPS: {:.0}",
+                    style("▸").dim(), elapsed.as_secs_f64() * 1000.0,
+                    requests as f64 / elapsed.as_secs_f64());
+                print_hedging_report(&engine.stats);
+            }
+
+            if cache_demo {
+                let mut cache = FragmentedCache::new();
+                println!("  {} Fragmented Cache Demo:", style("🗂️").yellow());
+
+                // Store a superset
+                let mut fields = std::collections::HashMap::new();
+                fields.insert("name".into(), serde_json::json!("Jatin"));
+                fields.insert("email".into(), serde_json::json!("jatin@dev.com"));
+                fields.insert("role".into(), serde_json::json!("engineer"));
+                fields.insert("projects".into(), serde_json::json!(42));
+                cache.store("/user/1", fields, std::time::Duration::from_secs(60));
+
+                // Client A: requests [name, email]
+                match cache.fetch_fragment("/user/1", &["name", "email"]) {
+                    FragmentResult::FullHit(f) => {
+                        println!("    Client A [name,email]: {} ← from cache",
+                            style(serde_json::to_string(&f).unwrap()).green());
+                    }
+                    _ => {}
+                }
+
+                // Client B: requests [role, projects]
+                match cache.fetch_fragment("/user/1", &["role", "projects"]) {
+                    FragmentResult::FullHit(f) => {
+                        println!("    Client B [role,projects]: {} ← from cache",
+                            style(serde_json::to_string(&f).unwrap()).green());
+                    }
+                    _ => {}
+                }
+
+                // Client C: requests [name, phone] — partial hit
+                match cache.fetch_fragment("/user/1", &["name", "phone"]) {
+                    FragmentResult::PartialHit { found, missing } => {
+                        println!("    Client C [name,phone]: found {} / missing {} ← partial",
+                            style(serde_json::to_string(&found).unwrap()).green(),
+                            style(format!("{:?}", missing)).red());
+                    }
+                    _ => {}
+                }
+
+                // Delta update (RFC 7396)
+                let mut patch = std::collections::HashMap::new();
+                patch.insert("projects".into(), serde_json::json!(43));
+                patch.insert("team".into(), serde_json::json!("platform"));
+                cache.apply_delta("/user/1", &patch);
+                println!("    Delta applied: projects→43, +team=platform");
+
+                print_frag_cache_report(&cache.stats);
+            }
+
+            if !bench && !cache_demo {
+                println!();
+                println!("  {} Use {} for hedging benchmark", style("→").dim(),
+                    style("jatin-lean hedge --bench").yellow());
+                println!("  {} Use {} for cache demo", style("→").dim(),
+                    style("jatin-lean hedge --cache-demo").yellow());
+                println!();
+            }
+        }
+
+        Commands::MmapIpc { bench, capacity, msg_size, compare } => {
+            use mmap_ipc::*;
+            println!("  {} {}", style("mmap Ring Buffer IPC Engine").cyan().bold(),
+                style("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━").dim());
+
+            if compare { print_ffi_comparison(); }
+
+            if bench {
+                let ring = MmapRingBuffer::new(capacity, msg_size);
+                let msg = vec![42u8; msg_size];
+
+                println!("  {} Benchmark: {} slots × {} byte messages",
+                    style("⚡").yellow(), style(capacity).green().bold(),
+                    style(msg_size).white());
+
+                let start = std::time::Instant::now();
+                let mut writes = 0u64;
+                let mut reads = 0u64;
+                // Write-heavy burst
+                for _ in 0..capacity { if ring.write(&msg) { writes += 1; } }
+                // Batch read
+                let batch = ring.read_batch(capacity);
+                reads = batch.len() as u64;
+                // Process batch
+                let config = BatchProcessorConfig::default();
+                let result = process_batch_parallel(&batch, &config);
+                let elapsed = start.elapsed();
+
+                println!("  {} Written: {} | Read: {} (batch)",
+                    style("▸").dim(), writes, reads);
+                println!("  {} Batch throughput: {:.0} msg/s",
+                    style("🚀").yellow(), style(format!("{:.0}", result.throughput_msg_per_sec)).green().bold());
+                println!("  {} Total elapsed: {:.2} ms",
+                    style("▸").dim(), elapsed.as_secs_f64() * 1000.0);
+
+                let ipc_latency = if writes > 0 { elapsed.as_nanos() as f64 / writes as f64 } else { 0.0 };
+                println!("  {} IPC latency: {:.0} ns/msg (vs 50,000 ns JSON-over-HTTP)",
+                    style("⚡").yellow(), style(format!("{:.0}", ipc_latency)).green().bold());
+
+                print_mmap_report(&ring.stats);
+            }
+
+            if !bench && !compare {
+                println!();
+                println!("  {} Use {} for throughput benchmark", style("→").dim(),
+                    style("jatin-lean mmap-ipc --bench").yellow());
+                println!("  {} Use {} for FFI comparison", style("→").dim(),
+                    style("jatin-lean mmap-ipc --compare").yellow());
+                println!();
+            }
+        }
     }
 
     Ok(())
@@ -793,7 +2254,7 @@ fn run_local_mode(
     create_snapshot: bool,
     export_path: Option<&Path>,
 ) -> Result<()> {
-    let mut profiler = profiler::Profiler::new(profile);
+    let mut profiler = profiler::Profiler::with_profiling(profile);
     let overall_start = Instant::now();
 
     // Find node_modules
@@ -846,7 +2307,7 @@ fn run_local_mode(
     profiler.start_span("Discovery (Scan)");
     let rules = rules::PruneRules::new_with_config(config);
     let scan_result =
-        scanner::scan_node_modules(&nm_path, &rules).context("Failed to scan node_modules")?;
+        scanner::scan_node_modules(&nm_path, &rules, None).context("Failed to scan node_modules")?;
     profiler.end_span(scan_result.total_files);
 
     display::print_discovery(&scan_result);
@@ -1049,6 +2510,9 @@ fn run_local_mode(
     // Print profiling report
     if profile {
         profiler::print_profiling_report(&profiler);
+        // Enhanced dashboard (Step 14)
+        let metrics = profiler.clone().finalize();
+        display::print_performance_dashboard(&metrics);
     }
 
     Ok(())
@@ -1118,7 +2582,7 @@ fn run_global_mode(root: &PathBuf, max_depth: usize) -> Result<()> {
             .map(|n| n.to_string_lossy().to_string())
             .unwrap_or_else(|| "unknown".to_string());
 
-        match scanner::scan_node_modules(nm_path, &rules) {
+        match scanner::scan_node_modules(nm_path, &rules, None) {
             Ok(result) => {
                 let savings = result.savings();
                 let days = scanner::last_accessed_days(nm_path);
