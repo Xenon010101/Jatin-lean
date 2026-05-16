@@ -103,6 +103,15 @@ enum Commands {
         clear: bool,
     },
 
+    /// Undo the last pruning operation
+    Undo,
+
+    /// Restore a specific snapshot by ID
+    Restore {
+        /// The snapshot ID to restore
+        snapshot_id: String,
+    },
+
     /// Find duplicate files across packages in node_modules
     Dedup {
         /// Path to the project directory
@@ -319,6 +328,46 @@ fn handle_subcommand(command: Commands) -> Result<()> {
     display::print_banner();
 
     match command {
+        Commands::Undo => {
+            let manager = snapshot::SnapshotManager::new()?;
+            let snapshots = manager.list_snapshots()?;
+            
+            if let Some(latest) = snapshots.first() {
+                println!(
+                    "  {} Undoing last prune operation (Snapshot {})...",
+                    style("⏪").magenta().bold(),
+                    style(&latest.id).cyan()
+                );
+                let result = manager.restore_snapshot(&latest.id)?;
+                snapshot::print_restore_result(&result);
+            } else {
+                println!(
+                    "  {} No snapshots found to undo. Did you run with {}?",
+                    style("✗").red().bold(),
+                    style("--snapshot").yellow()
+                );
+            }
+        }
+
+        Commands::Restore { snapshot_id } => {
+            let manager = snapshot::SnapshotManager::new()?;
+            println!(
+                "  {} Restoring snapshot {}...",
+                style("⏪").magenta().bold(),
+                style(&snapshot_id).cyan()
+            );
+            match manager.restore_snapshot(&snapshot_id) {
+                Ok(result) => snapshot::print_restore_result(&result),
+                Err(e) => {
+                    println!(
+                        "  {} Failed to restore snapshot: {}",
+                        style("✗").red().bold(),
+                        e
+                    );
+                }
+            }
+        }
+
         Commands::Analytics { clear } => {
             if clear {
                 let mut db = analytics::AnalyticsDB::load()?;
@@ -945,9 +994,14 @@ fn run_local_mode(
                 style(&snap_id).cyan()
             );
             println!(
+                "  {} Undo with:    {}",
+                style("→").dim(),
+                style("jatin-lean undo").yellow()
+            );
+            println!(
                 "  {} Restore with: {}",
                 style("→").dim(),
-                style(format!("jatin-lean snapshots --restore {}", snap_id)).yellow()
+                style(format!("jatin-lean restore {}", snap_id)).yellow()
             );
             profiler.end_span(filtered_result.candidates.len() as u64);
         }

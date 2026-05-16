@@ -1,6 +1,6 @@
 [package]
 name = "jatin-lean"
-version = "0.3.0"
+version = "0.4.0"
 edition = "2021"
 description = "A high-performance CLI utility to prune, analyze, and optimize node_modules — featuring SIMD-accelerated scanning, memory-mapped I/O, duplicate detection, dependency graph analysis, snapshot/undo, watch mode, analytics, policy enforcement, and multi-format reporting."
 authors = ["Jatin Jalandhra"]
