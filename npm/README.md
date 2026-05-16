@@ -1,6 +1,6 @@
 # ⚡ jatin-lean
 
-**A high-performance Rust CLI utility to prune non-essential files from `node_modules`, reducing disk footprint by up to 50% without breaking runtime dependencies.**
+**Enterprise-grade high-performance Rust CLI utility to prune node_modules — now featuring io_uring I/O, CPU cache prefetching, hardware-coherent unified memory routing, and zero-copy IPC.**
 
 Created by **Jatin Jalandhra**
 

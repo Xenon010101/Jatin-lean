@@ -1,7 +1,7 @@
 {
   "name": "jatin-lean",
-  "version": "0.4.0",
-  "description": "A high-performance CLI utility to prune, analyze, and optimize node_modules — featuring duplicate detection, dependency graph analysis, snapshot/undo, watch mode, and analytics.",
+  "version": "0.5.0",
+  "description": "Enterprise-grade high-performance CLI utility to prune node_modules — featuring io_uring I/O, CPU cache prefetching, hardware-coherent unified memory routing, and zero-copy IPC.",
   "main": "index.js",
   "types": "index.d.ts",
   "bin": {
