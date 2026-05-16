@@ -3,6 +3,7 @@
 //! Discovers node_modules directories and walks them in parallel,
 //! collecting file metadata for the pruning engine.
 
+use crate::profiler::{PackageTiming, Profiler};
 use crate::rules::{FileCategory, PruneRules};
 use anyhow::{Context, Result};
 use ignore::WalkBuilder;
@@ -13,7 +14,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
-use std::time::SystemTime;
+use std::time::{Instant, SystemTime};
 
 /// Information about a file flagged for deletion.
 #[derive(Debug, Clone)]
@@ -115,7 +116,13 @@ pub fn last_accessed_days(path: &Path) -> Option<u64> {
 }
 
 /// Scan a single node_modules directory and identify prune candidates.
-pub fn scan_node_modules(node_modules_path: &Path, rules: &PruneRules) -> Result<ScanResult> {
+pub fn scan_node_modules(
+    node_modules_path: &Path,
+    rules: &PruneRules,
+    profiler: Option<&mut Profiler>,
+) -> Result<ScanResult> {
+    let scan_start = Instant::now();
+    
     let total_files = AtomicU64::new(0);
     let total_size = AtomicU64::new(0);
     let whitelisted = AtomicU64::new(0);
@@ -131,7 +138,8 @@ pub fn scan_node_modules(node_modules_path: &Path, rules: &PruneRules) -> Result
     pb.set_message("Scanning files...");
     pb.enable_steady_tick(std::time::Duration::from_millis(80));
 
-    // Discover all packages
+    // Phase 1: Discovery - find all packages
+    let discovery_start = Instant::now();
     let mut packages: Vec<PathBuf> = Vec::new();
     if node_modules_path.is_dir() {
         if let Ok(entries) = fs::read_dir(node_modules_path) {
@@ -160,15 +168,25 @@ pub fn scan_node_modules(node_modules_path: &Path, rules: &PruneRules) -> Result
             }
         }
     }
+    let discovery_duration = discovery_start.elapsed();
+    if let Some(prof) = profiler.as_ref() {
+        // Note: We can't mutate profiler here due to borrow checker
+        // Will record at the end
+    }
 
     let package_count = packages.len();
 
-    // Parse each package's package.json to find whitelisted files
+    // Phase 2: Parsing - extract entry points from package.json
+    let parsing_start = Instant::now();
     let whitelisted_files: Arc<Mutex<std::collections::HashSet<PathBuf>>> =
         Arc::new(Mutex::new(std::collections::HashSet::new()));
+    
+    // Store per-package timings
+    let package_timings: Arc<Mutex<Vec<PackageTiming>>> = Arc::new(Mutex::new(Vec::new()));
 
     // Process packages in parallel
     packages.par_iter().for_each(|pkg_path| {
+        let pkg_start = Instant::now();
         let pkg_name = extract_package_name(pkg_path, node_modules_path);
 
         // Parse package.json for entry points
@@ -185,7 +203,11 @@ pub fn scan_node_modules(node_modules_path: &Path, rules: &PruneRules) -> Result
             }
         }
 
-        // Walk all files in this package
+        // Phase 3: Walking - traverse all files in package
+        let mut pkg_file_count = 0;
+        let mut pkg_total_size = 0;
+        let mut pkg_candidates = 0;
+        
         let walker = WalkBuilder::new(pkg_path)
             .hidden(false)
             .git_ignore(false)
@@ -200,6 +222,8 @@ pub fn scan_node_modules(node_modules_path: &Path, rules: &PruneRules) -> Result
             let file_path = entry.into_path();
             let file_size = fs::metadata(&file_path).map(|m| m.len()).unwrap_or(0);
 
+            pkg_file_count += 1;
+            pkg_total_size += file_size;
             total_files.fetch_add(1, Ordering::Relaxed);
             total_size.fetch_add(file_size, Ordering::Relaxed);
 
@@ -213,7 +237,7 @@ pub fn scan_node_modules(node_modules_path: &Path, rules: &PruneRules) -> Result
                 ));
             }
 
-            // Get relative path within package
+            // Phase 4: Classification - determine if file should be pruned
             if let Ok(rel_path) = file_path.strip_prefix(pkg_path) {
                 if let Some(category) = rules.classify(rel_path) {
                     // Check if this file is whitelisted (runtime-required)
@@ -222,6 +246,7 @@ pub fn scan_node_modules(node_modules_path: &Path, rules: &PruneRules) -> Result
                         whitelisted.fetch_add(1, Ordering::Relaxed);
                     } else {
                         drop(wl);
+                        pkg_candidates += 1;
                         let candidate = PruneCandidate {
                             path: file_path,
                             size: file_size,
@@ -233,7 +258,21 @@ pub fn scan_node_modules(node_modules_path: &Path, rules: &PruneRules) -> Result
                 }
             }
         }
+        
+        // Record package timing
+        let pkg_duration = pkg_start.elapsed();
+        let timing = PackageTiming {
+            name: pkg_name,
+            scan_time: pkg_duration,
+            trace_time: std::time::Duration::ZERO, // Will be filled by tracer
+            file_count: pkg_file_count,
+            total_size: pkg_total_size,
+            candidates_found: pkg_candidates,
+        };
+        package_timings.lock().unwrap().push(timing);
     });
+    
+    let parsing_duration = parsing_start.elapsed();
 
     pb.finish_and_clear();
 
@@ -242,6 +281,20 @@ pub fn scan_node_modules(node_modules_path: &Path, rules: &PruneRules) -> Result
         .context("Failed to collect candidates")?
         .into_inner()
         .map_err(|e| anyhow::anyhow!("Mutex poisoned: {}", e))?;
+    
+    // Record metrics in profiler
+    if let Some(prof) = profiler {
+        prof.record_discovery(discovery_duration);
+        prof.record_parsing(parsing_duration);
+        
+        // Add all package timings
+        if let Ok(timings_mutex) = Arc::try_unwrap(package_timings) {
+            let timings = timings_mutex.into_inner().unwrap_or_default();
+            for timing in timings {
+                prof.record_package(timing);
+            }
+        }
+    }
 
     Ok(ScanResult {
         root: node_modules_path.to_path_buf(),
