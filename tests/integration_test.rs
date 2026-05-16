@@ -140,7 +140,7 @@ fn test_full_scan_pipeline() -> Result<()> {
 
     let nm_path = temp.path().join("node_modules");
     let rules = jatin_lean::rules::PruneRules::new();
-    let result = jatin_lean::scanner::scan_node_modules(&nm_path, &rules)?;
+    let result = jatin_lean::scanner::scan_node_modules(&nm_path, &rules, None)?;
 
     assert!(result.total_files > 0, "Should find files");
     assert!(result.total_size > 0, "Should calculate size");
@@ -162,7 +162,7 @@ fn test_scan_finds_documentation() -> Result<()> {
 
     let nm_path = temp.path().join("node_modules");
     let rules = jatin_lean::rules::PruneRules::new();
-    let result = jatin_lean::scanner::scan_node_modules(&nm_path, &rules)?;
+    let result = jatin_lean::scanner::scan_node_modules(&nm_path, &rules, None)?;
 
     // README and CHANGELOG should be in candidates
     let has_readme = result.candidates.iter().any(|c| {
@@ -205,7 +205,7 @@ fn test_scan_result_savings() -> Result<()> {
 
     let nm_path = temp.path().join("node_modules");
     let rules = jatin_lean::rules::PruneRules::new();
-    let result = jatin_lean::scanner::scan_node_modules(&nm_path, &rules)?;
+    let result = jatin_lean::scanner::scan_node_modules(&nm_path, &rules, None)?;
 
     let savings = result.savings();
     assert!(
@@ -309,17 +309,18 @@ fn test_analytics_db_lifecycle() -> Result<()> {
 
 #[test]
 fn test_profiler_basic_flow() {
-    let mut profiler = jatin_lean::profiler::Profiler::new(true);
+    let mut profiler = jatin_lean::profiler::Profiler::new();
     profiler.start_span("test");
     profiler.end_span(100);
-    assert_eq!(profiler.spans().len(), 1);
-    assert_eq!(profiler.spans()[0].items_processed, 100);
+    // Profiler now uses record_package and phase_breakdown instead of spans()
+    assert_eq!(profiler.total_packages, 0); // No packages recorded yet
 }
 
 #[test]
-fn test_profiler_disabled_noop() {
-    let mut profiler = jatin_lean::profiler::Profiler::new(false);
+fn test_profiler_with_profiling() {
+    let mut profiler = jatin_lean::profiler::Profiler::with_profiling(true);
     profiler.start_span("test");
     profiler.end_span(100);
-    assert!(profiler.spans().is_empty());
+    profiler.record_discovery(std::time::Duration::from_millis(10));
+    assert_eq!(profiler.phase_breakdown.discovery, std::time::Duration::from_millis(10));
 }
