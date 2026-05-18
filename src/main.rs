@@ -182,10 +182,6 @@ enum Commands {
         #[arg(default_value = ".")]
         path: PathBuf,
     },
-
-    // Legacy commands — hidden from help, emit deprecation warnings
-    #[command(flatten)]
-    Legacy(cli::LegacyCommands),
 }
 
 fn main() -> Result<()> {
@@ -259,7 +255,6 @@ fn handle_subcommand(command: Commands, ctx: &output::OutputContext) -> Result<(
         Commands::Memory { command } => cli::handle_memory_command(command, ctx)?,
         Commands::Bench { command } => cli::handle_bench_command(command, ctx)?,
         Commands::Analyze { command } => cli::handle_analyze_command(command, ctx)?,
-        Commands::Legacy(command) => cli::handle_legacy_command(command, ctx)?,
         Commands::AiContext { path } => ai_context::handle_ai_context(path, ctx)?,
     }
     Ok(())

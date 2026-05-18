@@ -48,3 +48,9 @@ pub mod bpf_verifier;
 pub mod pcie_bottleneck;
 pub mod hedging;
 pub mod mmap_ipc;
+pub mod static_plugins;
+
+// New modules for actionable optimizations
+pub mod system_apply;
+pub mod optimization;
+pub mod impact_measurement;
