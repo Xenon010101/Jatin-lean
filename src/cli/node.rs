@@ -39,6 +39,29 @@ pub enum NodeCommands {
         export: Option<PathBuf>,
     },
 
+    /// Prune non-essential files from node_modules
+    Prune {
+        /// Path to project directory
+        #[arg(default_value = ".")]
+        path: PathBuf,
+
+        /// Execute deletion (default is dry-run)
+        #[arg(long, short = 'f')]
+        force: bool,
+
+        /// Skip confirmation prompt
+        #[arg(long, short = 'y')]
+        yes: bool,
+
+        /// Create snapshot before deletion
+        #[arg(long)]
+        snapshot: bool,
+        
+        /// Show individual files
+        #[arg(long, short = 'v')]
+        verbose: bool,
+    },
+
     /// Run comprehensive health check on node_modules
     Health {
         #[arg(default_value = ".")]
@@ -133,6 +156,9 @@ pub fn handle_command(command: NodeCommands, ctx: &OutputContext) -> Result<()> 
         NodeCommands::Scan { path, verbose, force, yes, snapshot, profile, export } => {
             // Delegate to the existing run_local_mode logic in main
             crate::run_local_mode_from_cli(&path, force, yes, verbose, profile, snapshot, export.as_deref(), ctx)
+        }
+        NodeCommands::Prune { path, force, yes, snapshot, verbose } => {
+            crate::run_local_mode_from_cli(&path, force, yes, verbose, false, snapshot, None, ctx)
         }
         NodeCommands::Health { path } => {
             let target = std::fs::canonicalize(&path)?;

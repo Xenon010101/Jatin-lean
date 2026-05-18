@@ -54,3 +54,7 @@ pub mod static_plugins;
 pub mod system_apply;
 pub mod optimization;
 pub mod impact_measurement;
+
+// Node.js bindings
+#[cfg(feature = "napi")]
+pub mod node_bindings;

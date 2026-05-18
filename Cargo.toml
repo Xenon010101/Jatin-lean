@@ -1,6 +1,6 @@
 [package]
 name = "jatin-lean"
-version = "0.5.3"
+version = "1.0.0"
 edition = "2021"
 description = "Enterprise-grade high-performance CLI utility to prune node_modules — featuring io_uring I/O, CPU cache prefetching, hardware-coherent unified memory routing, and zero-copy IPC."
 authors = ["Jatin Jalandhra"]
@@ -29,6 +29,11 @@ path = "src/main.rs"
 [lib]
 name = "jatin_lean"
 path = "src/lib.rs"
+crate-type = ["cdylib", "rlib"]
+
+[features]
+default = []
+napi = ["dep:napi", "dep:napi-derive"]
 
 [dependencies]
 # CLI argument parsing
@@ -86,6 +91,8 @@ hostname = "0.4"
 
 # CPU core count detection
 num_cpus = "1.16"
+napi = { version = "3.9.0", optional = true }
+napi-derive = { version = "3.5.6", optional = true }
 
 [profile.release]
 opt-level = 3

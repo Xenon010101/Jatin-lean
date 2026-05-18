@@ -182,6 +182,9 @@ enum Commands {
         #[arg(default_value = ".")]
         path: PathBuf,
     },
+
+    #[command(flatten)]
+    Legacy(cli::legacy::LegacyCommands),
 }
 
 fn main() -> Result<()> {
@@ -256,6 +259,7 @@ fn handle_subcommand(command: Commands, ctx: &output::OutputContext) -> Result<(
         Commands::Bench { command } => cli::handle_bench_command(command, ctx)?,
         Commands::Analyze { command } => cli::handle_analyze_command(command, ctx)?,
         Commands::AiContext { path } => ai_context::handle_ai_context(path, ctx)?,
+        Commands::Legacy(cmd) => cli::legacy::handle_command(cmd, ctx)?,
     }
     Ok(())
 }

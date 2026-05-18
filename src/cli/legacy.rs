@@ -28,7 +28,7 @@ pub enum LegacyCommands {
     #[command(hide = true)]
     Audit { #[arg(default_value = ".")] path: PathBuf },
     /// [DEPRECATED] Use: jatin-lean node analyze
-    #[command(hide = true)]
+    #[command(name = "old-analyze", hide = true)]
     Analyze { #[arg(default_value = ".")] path: PathBuf },
     /// [DEPRECATED] Use: jatin-lean analyze undo
     #[command(hide = true)]
@@ -73,7 +73,7 @@ pub enum LegacyCommands {
     #[command(hide = true)]
     Plugins { #[arg(long)] list: bool },
     /// [DEPRECATED] Use: jatin-lean bench all
-    #[command(hide = true)]
+    #[command(name = "old-bench", hide = true)]
     Bench { #[arg(long)] all: bool, #[arg(long)] timer: bool },
     /// [DEPRECATED] Use: jatin-lean system io
     #[command(hide = true)]

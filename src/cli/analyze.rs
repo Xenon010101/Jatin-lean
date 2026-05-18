@@ -39,6 +39,10 @@ pub enum AnalyzeCommands {
     },
     /// Undo the last pruning operation
     Undo,
+    /// Restore a specific snapshot
+    Restore {
+        snapshot_id: String,
+    },
     /// List and manage plugins
     Plugins {
         #[arg(long)] list: bool,
@@ -268,6 +272,20 @@ pub fn handle_command(command: AnalyzeCommands, ctx: &OutputContext) -> Result<(
                 }
             }
             if ctx.json { crate::output::output_result("analyze undo", &serde_json::Value::Object(json_out), ctx)?; }
+            Ok(())
+        }
+        AnalyzeCommands::Restore { snapshot_id } => {
+            let manager = crate::snapshot::SnapshotManager::new()?;
+            if !ctx.json {
+                println!("  {} Restoring snapshot {}...", style("⏪").magenta().bold(), style(&snapshot_id).cyan());
+            }
+            let result = manager.restore_snapshot(&snapshot_id)?;
+            if ctx.json {
+                json_out.insert("restored_snapshot_id".to_string(), serde_json::json!(snapshot_id));
+                crate::output::output_result("analyze restore", &serde_json::Value::Object(json_out), ctx)?;
+            } else {
+                crate::snapshot::print_restore_result(&result);
+            }
             Ok(())
         }
         AnalyzeCommands::Plugins { list: _ } => {

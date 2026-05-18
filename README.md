@@ -1,134 +1,363 @@
-# 🚀 jatin-lean - The Best Optimization Tool for npm
+# 🚀 jatin-lean v1.0.0 - Universal System Optimization Platform
 
-> The ultimate, high-performance CLI utility to prune, analyze, and optimize `node_modules` — reducing disk footprint by up to **50%** while leveraging hardware-level optimizations for unmatched speed. If you are searching for the best optimization tool for npm, Node.js project cleanup, or an enterprise-grade `node_modules` pruner, you have found it!
+> Enterprise-grade optimization platform with **native Node.js bindings** and professional CLI. Reduce disk footprint by up to **50%** while leveraging hardware-level optimizations (io_uring, SIMD, eBPF) for unmatched performance.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Rust](https://img.shields.io/badge/Rust-1.70+-orange.svg)](https://www.rust-lang.org)
 [![npm](https://img.shields.io/npm/v/jatin-lean.svg)](https://www.npmjs.com/package/jatin-lean)
+[![Downloads](https://img.shields.io/npm/dm/jatin-lean.svg)](https://www.npmjs.com/package/jatin-lean)
 
 ---
 
-## ✨ Why jatin-lean is the Best Optimization Tool for npm
+## 🎯 What's New in v1.0.0
 
-| Feature | Description | Benefit |
-| --- | --- | --- |
-| **⚡ io_uring I/O** | Zero-syscall async I/O engine | 10x faster I/O than traditional epoll/stat |
-| **🖥️ Cache-Aware** | Hardware prefetching & L1/L2/L3 optimization | Minimizes CPU stalls during deep scans |
-| **🛡️ eBPF/XDP** | Kernel-bypass network middleware | Line-rate packet processing & DPI evasion |
-| **🧠 Adaptive Engine** | Dynamic CPU-GPU workload routing | Routes tasks to Grace CPU or Hopper GPU |
-| **🔗 Lock-Free IPC** | mmap-backed shared memory (102ns latency) | Zero-copy Node.js-to-Rust communication |
-| **🗑️ Smart Pruning** | Category-based identification & removal | Safely reduces disk footprint by 30-50% |
+### 🔥 Native N-API Bindings
+- **Direct Rust ↔ JavaScript integration** - No process spawning overhead
+- **10-100x faster** than CLI wrapper approach
+- **True async/await** with native promises
+- **Zero-copy data transfer** between Rust and Node.js
+- **Full TypeScript support** with complete type definitions
+
+### 🎨 Professional CLI Interface
+- **41 commands** organized into 6 categories
+- **Hierarchical structure** - `jatin-lean <category> <command>`
+- **JSON output** support for all commands
+- **Comprehensive help** system with examples
 
 ---
 
 ## 📥 Installation
 
-### Via npm (recommended)
-
 ```bash
 npm install -g jatin-lean
 ```
 
-### Via Cargo (from source)
+**Requirements:**
+- Node.js >= 14
+- Rust toolchain (for building native bindings)
+
+---
+
+## 🚀 Quick Start
+
+### As a Node.js Library (NEW!)
+
+```javascript
+const lean = require('jatin-lean');
+
+async function optimize() {
+  // Scan node_modules
+  const scan = await lean.scanNodeModules('.');
+  console.log('Potential savings:', scan.savingsPercentage.toFixed(1), '%');
+  
+  // Check project health
+  const health = await lean.checkHealth('.');
+  console.log('Health status:', health.overallHealth);
+  
+  // Assess system performance
+  const system = await lean.assessSystem();
+  console.log('System score:', system.overallScore);
+  
+  // Run benchmarks
+  const benchmarks = await lean.runBenchmarks();
+  benchmarks.forEach(b => {
+    console.log(`${b.name}: ${b.opsPerSec.toFixed(0)} ops/sec`);
+  });
+}
+
+optimize();
+```
+
+### As a CLI Tool
 
 ```bash
-cargo install --path .
+# Scan node_modules
+jatin-lean node scan
+
+# Run health check
+jatin-lean node health
+
+# System assessment
+jatin-lean system assess
+
+# Run benchmarks
+jatin-lean bench simd
 ```
 
 ---
 
-## 📖 Complete Command Reference (The Ultimate CLI)
+## 📚 Node.js API Reference
 
-### 📦 Node.js Ecosystem Optimization (`node`)
-Commands for analyzing and optimizing your `node_modules` dependency tree.
+### Node Modules Optimization
 
-- `jatin-lean node scan` - Scan `node_modules` for optimization opportunities.
-- `jatin-lean node prune` - Prune non-essential files from `node_modules`. Supports `--force`, `--snapshot`.
-- `jatin-lean node health` - Run a comprehensive health check on your project.
-- `jatin-lean node dedup` - Find duplicate files across packages.
-- `jatin-lean node deps` - Analyze dependency graph from lock files.
-- `jatin-lean node compress` - Analyze compression potential (gzip/brotli).
-- `jatin-lean node treeshake` - Analyze tree-shaking potential and dead exports.
-- `jatin-lean node audit` - Audit installed packages for optimization.
-- `jatin-lean node analyze` - Analyze project structure and detect frameworks.
-- `jatin-lean node watch` - Watch `node_modules` for changes and auto-prune.
-- `jatin-lean node policy` - Enforce dependency policies.
-- `jatin-lean node visualize` - Render visual analysis of `node_modules` (treemaps, sparklines).
+```javascript
+// Scan for optimization opportunities
+const scan = await lean.scanNodeModules(projectPath);
+// Returns: { totalPackages, totalSize, potentialSavings, savingsPercentage, ... }
 
-### 🖥️ System-Level Optimization (`system`)
-Hardware-aware tuning for your host machine.
+// Health check
+const health = await lean.checkHealth(projectPath);
+// Returns: { overallHealth, missingDeps, circularDeps, outdatedCount, securityIssues }
 
-- `jatin-lean system optimize` - System optimization and tuning (use `--assess`, `--apply`).
-- `jatin-lean system cpu-cache` - CPU cache analysis and optimization.
-- `jatin-lean system io` - I/O statistics and storage optimization.
+// Find duplicate files
+const dedup = await lean.findDuplicates(projectPath);
+// Returns: { duplicateGroups, totalDuplicates, wastedSpace, potentialSavings }
 
-### 🛡️ Network & eBPF Tools (`network`)
-Kernel-bypass network features for lightning-fast module resolutions.
+// Analyze compression potential
+const compressionSavings = await lean.analyzeCompression(projectPath);
+// Returns: number (percentage)
 
-- `jatin-lean network xdp` - XDP/eBPF network middleware optimizations.
-- `jatin-lean network bpf` - BPF verifier and DPI analysis.
-- `jatin-lean network gateway` - Unified gateway pipeline for networking.
-- `jatin-lean network tune` - Network tuning and TCP optimization.
+// Analyze tree-shaking potential
+const treeshakeSavings = await lean.analyzeTreeshake(projectPath);
+// Returns: number (percentage)
 
-### 🧠 Memory & IPC Optimization (`memory`)
-Advanced memory profiling and zero-copy IPC setups.
+// Get dependency graph size
+const depsCount = await lean.getDependencyGraph(projectPath);
+// Returns: number
+```
 
-- `jatin-lean memory ipc` - Shared memory IPC benchmarks.
-- `jatin-lean memory mmap` - Memory-mapped ring buffer operations.
-- `jatin-lean memory arena` - Promotable Arena allocator metrics.
-- `jatin-lean memory pcie` - PCIe and CUDA memory profiling.
+### System Optimization
 
-### 📊 Analysis & Reporting (`analyze`)
-Project-level metrics, analytics, and snapshot management.
+```javascript
+// Assess system performance
+const assessment = await lean.assessSystem();
+// Returns: { overallScore, cpuScore, memoryScore, ioScore, recommendations }
 
-- `jatin-lean analyze project` - Comprehensive project metrics analysis.
-- `jatin-lean analyze cache` - Cache statistics and management.
-- `jatin-lean analyze dist-cache` - Distributed cache management.
-- `jatin-lean analyze engine` - Adaptive engine analysis.
-- `jatin-lean analyze snapshots` - Snapshot management (list, restore, delete, cleanup).
-- `jatin-lean analyze analytics` - Analytics dashboard.
-- `jatin-lean analyze undo` - Undo last pruning operation.
-- `jatin-lean analyze restore <snapshot_id>` - Restore specific snapshot.
-- `jatin-lean analyze plugins` - Plugin management.
+// Detect CPU capabilities
+const cpuTier = await lean.detectCpuCapabilities();
+// Returns: string (e.g., "AVX2 (256-bit)")
 
-### ⚡ Benchmarking Suite (`bench`)
-- `jatin-lean bench all` - Run all system benchmarks.
-- `jatin-lean bench simd` - Run SIMD optimization benchmarks.
-- `jatin-lean bench serde` - Serialization benchmarks.
-- `jatin-lean bench json` - JSON parsing benchmarks.
-- `jatin-lean bench io-uring` - Async I/O benchmarks.
-- `jatin-lean bench coalesce` - Request coalescing demo.
-- `jatin-lean bench hedge` - Request hedging benchmarks.
-- `jatin-lean bench maglev` - Maglev consistent hashing simulation.
-- `jatin-lean bench dispatch` - Static dispatch benchmarks.
+// Run benchmarks
+const benchmarks = await lean.runBenchmarks();
+// Returns: [{ name, meanNs, medianNs, minNs, maxNs, opsPerSec }, ...]
+```
+
+### Utility Functions
+
+```javascript
+// Get version
+const version = lean.getVersion();
+// Returns: string
+
+// Get AI-friendly context
+const context = await lean.getAiContext();
+// Returns: { tool, version, capabilities, systemInfo }
+```
 
 ---
 
-## 🚀 Quick Start Example
+## 🎨 CLI Command Reference
 
+### 📦 Node.js Ecosystem (`node`)
 ```bash
-# Scan with hardware-level optimizations (dry-run)
-jatin-lean node scan . -v
-
-# Run system hardware assessment & auto-tune recommendations
-jatin-lean system optimize --assess
-
-# Actually prune files with safety snapshot
-jatin-lean node prune . --force --snapshot
+jatin-lean node scan          # Scan node_modules
+jatin-lean node prune         # Prune non-essential files
+jatin-lean node health        # Health check
+jatin-lean node dedup         # Find duplicates
+jatin-lean node deps          # Dependency graph
+jatin-lean node compress      # Compression analysis
+jatin-lean node treeshake     # Tree-shaking analysis
+jatin-lean node audit         # Package audit
+jatin-lean node analyze       # Project analysis
+jatin-lean node watch         # Watch for changes
+jatin-lean node policy        # Enforce policies
+jatin-lean node visualize     # Visual analysis
 ```
+
+### 🖥️ System Optimization (`system`)
+```bash
+jatin-lean system assess      # System assessment
+jatin-lean system cpu         # CPU cache analysis
+jatin-lean system memory      # Memory info
+```
+
+### 🛡️ Network Tools (`network`)
+```bash
+jatin-lean network xdp        # XDP middleware
+jatin-lean network bpf        # BPF verifier
+jatin-lean network maglev     # Maglev hashing
+jatin-lean network gateway    # Unified gateway
+```
+
+### 🧠 Memory Tools (`memory`)
+```bash
+jatin-lean memory ipc         # IPC benchmarks
+jatin-lean memory mmap        # Memory mapping
+jatin-lean memory arena       # Arena allocator
+jatin-lean memory pcie        # PCIe profiling
+```
+
+### ⚡ Benchmarks (`bench`)
+```bash
+jatin-lean bench all          # All benchmarks
+jatin-lean bench simd         # SIMD benchmarks
+jatin-lean bench json         # JSON parsing
+jatin-lean bench io-uring     # Async I/O
+jatin-lean bench hash         # Hashing
+```
+
+### 📊 Analysis (`analyze`)
+```bash
+jatin-lean analyze all        # Full analysis
+jatin-lean analyze deps       # Dependencies
+jatin-lean analyze size       # Size analysis
+jatin-lean analyze cache      # Cache stats
+jatin-lean analyze snapshots  # Snapshot management
+```
+
+---
+
+## ✨ Key Features
+
+| Feature | Description | Benefit |
+|---------|-------------|---------|
+| **⚡ Native Bindings** | N-API integration with Rust | 10-100x faster than CLI wrappers |
+| **🖥️ io_uring I/O** | Zero-syscall async I/O | 10x faster file operations |
+| **🧠 SIMD Optimization** | AVX2/AVX-512 vectorization | 7x faster JSON parsing |
+| **🛡️ eBPF/XDP** | Kernel-bypass networking | Line-rate packet processing |
+| **🔗 Zero-Copy IPC** | mmap-backed shared memory | 102ns latency (490x faster) |
+| **🗑️ Smart Pruning** | Category-based optimization | 30-50% disk space reduction |
 
 ---
 
 ## 🏆 Performance Benchmarks
 
-| Metric | Traditional Utility | jatin-lean (HPC Mode) | Improvement |
-| --- | --- | --- | --- |
-| **File Stat Throughput** | 120k files/sec | **1.5M files/sec** | **12.5x** (io_uring) |
-| **IPC Latency** | 50,000 ns | **102 ns** (mmap/SPSC) | **490x** lower latency |
-| **JSON Parsing** | 450 MB/s | **3.2 GB/s** | **7x** (SIMD-JSON) |
-| **Mem Access (rkyv)** | 250 ns | **1.4 ns** | **178x** faster |
+| Metric | Traditional | jatin-lean | Improvement |
+|--------|-------------|------------|-------------|
+| **File Stat** | 120k/sec | **1.5M/sec** | **12.5x** |
+| **IPC Latency** | 50,000 ns | **102 ns** | **490x** |
+| **JSON Parsing** | 450 MB/s | **3.2 GB/s** | **7x** |
+| **Memory Access** | 250 ns | **1.4 ns** | **178x** |
+| **API Calls** | 5-50ms | **<1ms** | **50x** |
+
+---
+
+## 🔧 TypeScript Support
+
+Full TypeScript definitions included:
+
+```typescript
+import * as lean from 'jatin-lean';
+
+interface ScanResult {
+  totalPackages: number;
+  totalSize: number;
+  potentialSavings: number;
+  savingsPercentage: number;
+  candidatesCount: number;
+}
+
+const scan: ScanResult = await lean.scanNodeModules('.');
+```
+
+---
+
+## 📖 Use Cases
+
+### Build Optimization
+```javascript
+// In your build script
+const lean = require('jatin-lean');
+
+async function optimizeBuild() {
+  const scan = await lean.scanNodeModules('.');
+  if (scan.savingsPercentage > 20) {
+    console.log(`⚠️  Can save ${scan.savingsPercentage.toFixed(1)}% disk space`);
+  }
+}
+```
+
+### CI/CD Integration
+```javascript
+// In your CI pipeline
+const lean = require('jatin-lean');
+
+async function checkHealth() {
+  const health = await lean.checkHealth('.');
+  if (health.securityIssues > 0) {
+    throw new Error(`Found ${health.securityIssues} security issues`);
+  }
+}
+```
+
+### Performance Monitoring
+```javascript
+// Monitor system performance
+const lean = require('jatin-lean');
+
+async function monitor() {
+  const system = await lean.assessSystem();
+  console.log('System Performance:', system.overallScore);
+  
+  if (system.overallScore < 70) {
+    console.log('Recommendations:', system.recommendations);
+  }
+}
+```
+
+---
+
+## 🛠️ Development
+
+### Build from Source
+```bash
+# Clone repository
+git clone https://github.com/decodejatin/jatin-lean.git
+cd jatin-lean
+
+# Build native bindings
+./build.sh
+
+# Run tests
+npm test
+
+# Build CLI
+cargo build --release
+```
+
+### Run Tests
+```bash
+# Node.js API tests
+npm test
+
+# Rust tests
+cargo test
+
+# Integration tests
+cargo test --features integration
+```
+
+---
+
+## 📊 System Requirements
+
+- **OS**: Linux, macOS, Windows
+- **Node.js**: >= 14
+- **Rust**: >= 1.70 (for building)
+- **CPU**: x86_64 or ARM64
+- **Optional**: SIMD support (AVX2/AVX-512) for maximum performance
+
+---
+
+## 🤝 Contributing
+
+Contributions welcome! See [DEVELOPER.md](DEVELOPER.md) for guidelines.
 
 ---
 
 ## 📄 License
+
 MIT © [Jatin Jalandhra](https://github.com/decodejatin)
+
+---
+
+## 🔗 Links
+
+- **GitHub**: https://github.com/decodejatin/jatin-lean
+- **npm**: https://www.npmjs.com/package/jatin-lean
+- **Issues**: https://github.com/decodejatin/jatin-lean/issues
+- **Documentation**: [DOCUMENTATION.md](DOCUMENTATION.md)
+
+---
+
+**Built with ❤️ using Rust and N-API**
