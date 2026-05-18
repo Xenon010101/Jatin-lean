@@ -10,8 +10,14 @@ use std::process::Command;
 use std::time::SystemTime;
 
 /// Check if running as root
+#[cfg(unix)]
 pub fn is_root() -> bool {
     unsafe { libc::geteuid() == 0 }
+}
+
+#[cfg(not(unix))]
+pub fn is_root() -> bool {
+    false // System optimization not fully supported on Windows yet
 }
 
 /// Require root privileges or return error
