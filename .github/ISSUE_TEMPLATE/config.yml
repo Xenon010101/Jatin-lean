@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: "💬 Ask a Question / General Discussion"
+    url: "https://github.com/decodejatin/jatin-lean/discussions"
+    about: "Have a question or want to discuss ideas? Ask here instead of opening a bug/feature issue."
