@@ -180,7 +180,7 @@ pub fn analyze_treeshake(path: String) -> Result<f64> {
         .map_err(|e| Error::from_reason(format!("Tree-shake analysis failed: {}", e)))?;
 
     let savings_pct = if result.total_exports > 0 {
-        (result.unused_exports as f64 / result.total_exports as f64 * 100.0)
+        result.unused_exports as f64 / result.total_exports as f64 * 100.0
     } else {
         0.0
     };
