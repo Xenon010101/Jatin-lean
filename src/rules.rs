@@ -79,6 +79,8 @@ pub struct PruneRules {
     pub example_dirs: Vec<String>,
     /// TypeScript source extensions (NOT .d.ts)
     pub ts_source_extensions: Vec<String>,
+    /// If true, license files (LICENSE, LICENCE, license*, licence*) are never deleted
+    pub keep_license: bool,
 }
 
 impl Default for PruneRules {
@@ -244,10 +246,16 @@ impl PruneRules {
 
             // ── TypeScript Sources ────────────────────────
             ts_source_extensions: vec![".ts", ".tsx"].into_iter().map(String::from).collect(),
+
+            // ── License protection (off by default) ───────
+            keep_license: false,
         };
 
         // Apply custom config if provided
         if let Some(cfg) = config {
+            // Apply keep_license from config
+            rules.keep_license = cfg.keep_license;
+
             if cfg.override_defaults {
                 // Replace defaults with config
                 if !cfg.doc_files.is_empty() {
@@ -346,11 +354,23 @@ impl PruneRules {
         rules
     }
 
+    /// Returns true if the given filename matches a license file pattern
+    /// (case-insensitive: license*, licence*, LICENSE, LICENCE, etc.)
+    fn is_license_file(file_name: &str) -> bool {
+        let lower = file_name.to_lowercase();
+        lower.starts_with("license") || lower.starts_with("licence")
+    }
+
     /// Classify a file path into a category, or None if it should be kept.
     ///
     /// The `rel_path` should be relative to the package directory within node_modules.
     pub fn classify(&self, rel_path: &Path) -> Option<FileCategory> {
         let file_name = rel_path.file_name().and_then(|n| n.to_str()).unwrap_or("");
+
+        // ── If keep_license is enabled, protect license files before any other check ──
+        if self.keep_license && Self::is_license_file(file_name) {
+            return None;
+        }
 
         // ── Safety: never touch .bin or dotfiles (except .github) ──
         for component in rel_path.components() {
@@ -623,5 +643,42 @@ mod tests {
         assert_eq!(FileCategory::SourceMap.risk_level(), 1);
         assert_eq!(FileCategory::BuildArtifact.risk_level(), 1);
         assert_eq!(FileCategory::TypeScriptSource.risk_level(), 2);
+    }
+
+    /// Verifies that with --keep-license enabled, LICENSE files are never deleted.
+    #[test]
+    fn test_keep_license_protects_license_files() {
+        let mut rules = PruneRules::new();
+        rules.keep_license = true;
+
+        // All common license filename variants must be protected (return None)
+        assert_eq!(rules.classify(&PathBuf::from("LICENSE")), None);
+        assert_eq!(rules.classify(&PathBuf::from("LICENSE.md")), None);
+        assert_eq!(rules.classify(&PathBuf::from("LICENSE.txt")), None);
+        assert_eq!(rules.classify(&PathBuf::from("LICENCE")), None);
+        assert_eq!(rules.classify(&PathBuf::from("LICENCE.md")), None);
+        // Case-insensitive variants
+        assert_eq!(rules.classify(&PathBuf::from("license")), None);
+        assert_eq!(rules.classify(&PathBuf::from("licence")), None);
+        assert_eq!(rules.classify(&PathBuf::from("License.txt")), None);
+
+        // Without keep_license, LICENSE would normally be classified as Documentation
+        let mut rules_no_keep = PruneRules::new();
+        rules_no_keep.keep_license = false;
+        // LICENSE is not in the default doc_files list, but let's confirm keep_license=true
+        // protects it regardless — set keep_license and verify it returns None
+        rules_no_keep.keep_license = true;
+        assert_eq!(rules_no_keep.classify(&PathBuf::from("LICENSE")), None);
+
+        // Non-license files are unaffected by keep_license
+        rules.keep_license = true;
+        assert_eq!(
+            rules.classify(&PathBuf::from("README.md")),
+            Some(FileCategory::Documentation)
+        );
+        assert_eq!(
+            rules.classify(&PathBuf::from("utils.test.js")),
+            Some(FileCategory::TestAsset)
+        );
     }
 }

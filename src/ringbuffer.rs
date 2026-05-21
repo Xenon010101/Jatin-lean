@@ -42,7 +42,9 @@ impl<T> RingBuffer<T> {
             buffer.push(UnsafeCell::new(None));
         }
         Self {
-            buffer, capacity, mask,
+            buffer,
+            capacity,
+            mask,
             write_idx: CacheAligned::new(AtomicUsize::new(0)),
             read_idx: CacheAligned::new(AtomicUsize::new(0)),
         }
@@ -56,8 +58,12 @@ impl<T> RingBuffer<T> {
             return Err(item);
         }
         let idx = write & self.mask;
-        unsafe { *self.buffer[idx].get() = Some(item); }
-        self.write_idx.value.store(write.wrapping_add(1), Ordering::Release);
+        unsafe {
+            *self.buffer[idx].get() = Some(item);
+        }
+        self.write_idx
+            .value
+            .store(write.wrapping_add(1), Ordering::Release);
         Ok(())
     }
 
@@ -65,10 +71,14 @@ impl<T> RingBuffer<T> {
     pub fn try_pop(&self) -> Option<T> {
         let read = self.read_idx.value.load(Ordering::Relaxed);
         let write = self.write_idx.value.load(Ordering::Acquire);
-        if read == write { return None; }
+        if read == write {
+            return None;
+        }
         let idx = read & self.mask;
         let item = unsafe { (*self.buffer[idx].get()).take() };
-        self.read_idx.value.store(read.wrapping_add(1), Ordering::Release);
+        self.read_idx
+            .value
+            .store(read.wrapping_add(1), Ordering::Release);
         item
     }
 
@@ -90,7 +100,9 @@ impl<T> RingBuffer<T> {
         write.wrapping_sub(read)
     }
 
-    pub fn capacity(&self) -> usize { self.capacity }
+    pub fn capacity(&self) -> usize {
+        self.capacity
+    }
 
     /// Drain all items into a Vec.
     pub fn drain_all(&self) -> Vec<T> {
@@ -112,29 +124,44 @@ pub struct ConcurrentRingBuffer<T: Send> {
 impl<T: Send> ConcurrentRingBuffer<T> {
     pub fn new(capacity: usize) -> Self {
         let (sender, receiver) = crossbeam::channel::bounded(capacity);
-        Self { sender, receiver, count: AtomicUsize::new(0) }
+        Self {
+            sender,
+            receiver,
+            count: AtomicUsize::new(0),
+        }
     }
 
     pub fn unbounded() -> Self {
         let (sender, receiver) = crossbeam::channel::unbounded();
-        Self { sender, receiver, count: AtomicUsize::new(0) }
+        Self {
+            sender,
+            receiver,
+            count: AtomicUsize::new(0),
+        }
     }
 
     pub fn push(&self, item: T) -> Result<(), crossbeam::channel::SendError<T>> {
         let result = self.sender.send(item);
-        if result.is_ok() { self.count.fetch_add(1, Ordering::Relaxed); }
+        if result.is_ok() {
+            self.count.fetch_add(1, Ordering::Relaxed);
+        }
         result
     }
 
     pub fn try_push(&self, item: T) -> Result<(), crossbeam::channel::TrySendError<T>> {
         let result = self.sender.try_send(item);
-        if result.is_ok() { self.count.fetch_add(1, Ordering::Relaxed); }
+        if result.is_ok() {
+            self.count.fetch_add(1, Ordering::Relaxed);
+        }
         result
     }
 
     pub fn try_pop(&self) -> Option<T> {
         match self.receiver.try_recv() {
-            Ok(item) => { self.count.fetch_sub(1, Ordering::Relaxed); Some(item) }
+            Ok(item) => {
+                self.count.fetch_sub(1, Ordering::Relaxed);
+                Some(item)
+            }
             Err(_) => None,
         }
     }
@@ -148,9 +175,15 @@ impl<T: Send> ConcurrentRingBuffer<T> {
         result
     }
 
-    pub fn len(&self) -> usize { self.count.load(Ordering::Relaxed) }
-    pub fn is_empty(&self) -> bool { self.len() == 0 }
-    pub fn sender(&self) -> crossbeam::channel::Sender<T> { self.sender.clone() }
+    pub fn len(&self) -> usize {
+        self.count.load(Ordering::Relaxed)
+    }
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+    pub fn sender(&self) -> crossbeam::channel::Sender<T> {
+        self.sender.clone()
+    }
 }
 
 /// Batch-oriented ring buffer that flushes in batches.
@@ -161,13 +194,20 @@ pub struct BatchRingBuffer<T: Send> {
 
 impl<T: Send> BatchRingBuffer<T> {
     pub fn new(capacity: usize, batch_size: usize) -> Self {
-        Self { inner: Arc::new(ConcurrentRingBuffer::new(capacity)), batch_size }
+        Self {
+            inner: Arc::new(ConcurrentRingBuffer::new(capacity)),
+            batch_size,
+        }
     }
 
-    pub fn batch_size(&self) -> usize { self.batch_size }
+    pub fn batch_size(&self) -> usize {
+        self.batch_size
+    }
 
     pub fn flush_batch(&self, batch: Vec<T>) {
-        if !batch.is_empty() { let _ = self.inner.push(batch); }
+        if !batch.is_empty() {
+            let _ = self.inner.push(batch);
+        }
     }
 
     pub fn drain_all_flat(&self) -> Vec<T> {
@@ -175,7 +215,9 @@ impl<T: Send> BatchRingBuffer<T> {
         batches.into_iter().flatten().collect()
     }
 
-    pub fn inner(&self) -> Arc<ConcurrentRingBuffer<Vec<T>>> { Arc::clone(&self.inner) }
+    pub fn inner(&self) -> Arc<ConcurrentRingBuffer<Vec<T>>> {
+        Arc::clone(&self.inner)
+    }
 }
 
 /// Ring buffer usage statistics.
@@ -190,10 +232,20 @@ pub struct RingBufferStats {
 
 impl RingBufferStats {
     pub fn new(capacity: usize) -> Self {
-        Self { total_pushed: 0, total_popped: 0, peak_occupancy: 0, push_failures: 0, capacity }
+        Self {
+            total_pushed: 0,
+            total_popped: 0,
+            peak_occupancy: 0,
+            push_failures: 0,
+            capacity,
+        }
     }
     pub fn peak_utilization_pct(&self) -> f64 {
-        if self.capacity == 0 { 0.0 } else { (self.peak_occupancy as f64 / self.capacity as f64) * 100.0 }
+        if self.capacity == 0 {
+            0.0
+        } else {
+            (self.peak_occupancy as f64 / self.capacity as f64) * 100.0
+        }
     }
 }
 
@@ -230,8 +282,12 @@ mod tests {
         let rb = RingBuffer::new(4);
         for round in 0..10 {
             let base = round * 4;
-            for i in 0..4 { rb.try_push(base + i).unwrap(); }
-            for i in 0..4 { assert_eq!(rb.try_pop(), Some(base + i)); }
+            for i in 0..4 {
+                rb.try_push(base + i).unwrap();
+            }
+            for i in 0..4 {
+                assert_eq!(rb.try_pop(), Some(base + i));
+            }
         }
     }
 
@@ -240,7 +296,9 @@ mod tests {
         let crb = Arc::new(ConcurrentRingBuffer::new(1024));
         let crb2 = Arc::clone(&crb);
         let t = std::thread::spawn(move || {
-            for i in 0..100 { crb2.push(i).unwrap(); }
+            for i in 0..100 {
+                crb2.push(i).unwrap();
+            }
         });
         t.join().unwrap();
         assert_eq!(crb.drain_all().len(), 100);

@@ -265,13 +265,17 @@ impl IpcStats {
 
     pub fn avg_latency_ns(&self) -> f64 {
         let received = self.messages_received.load(Ordering::Relaxed);
-        if received == 0 { return 0.0; }
+        if received == 0 {
+            return 0.0;
+        }
         self.total_latency_ns.load(Ordering::Relaxed) as f64 / received as f64
     }
 
     pub fn throughput_mps(&self, elapsed: Duration) -> f64 {
         let secs = elapsed.as_secs_f64();
-        if secs < 0.001 { return 0.0; }
+        if secs < 0.001 {
+            return 0.0;
+        }
         self.messages_sent.load(Ordering::Relaxed) as f64 / secs
     }
 }
@@ -284,13 +288,18 @@ impl SpscIpcRing {
         let mut slots = Vec::with_capacity(capacity);
         for _ in 0..capacity {
             slots.push(UnsafeCell::new(MessageSlot {
-                magic: 0, msg_type: 0, payload_len: 0,
-                sequence: 0, timestamp_ns: 0,
+                magic: 0,
+                msg_type: 0,
+                payload_len: 0,
+                sequence: 0,
+                timestamp_ns: 0,
                 payload: [0u8; MessageSlot::MAX_PAYLOAD],
             }));
         }
         Self {
-            slots, capacity, mask,
+            slots,
+            capacity,
+            mask,
             header: SpscRingHeader::new(),
             stats: IpcStats::new(),
         }
@@ -311,27 +320,37 @@ impl SpscIpcRing {
         let slot = MessageSlot::new(msg_type, payload, seq);
 
         // Safety: single producer, so we have exclusive write access to this slot
-        unsafe { *self.slots[idx].get() = slot; }
+        unsafe {
+            *self.slots[idx].get() = slot;
+        }
 
         self.header.write_idx.store_release(write.wrapping_add(1));
         self.stats.messages_sent.fetch_add(1, Ordering::Relaxed);
-        self.stats.bytes_transferred.fetch_add(payload.len() as u64, Ordering::Relaxed);
+        self.stats
+            .bytes_transferred
+            .fetch_add(payload.len() as u64, Ordering::Relaxed);
 
         Ok(seq)
     }
 
     /// Consumer: pop a message (Rust side) — zero-copy read.
     pub fn pop(&self) -> Option<&MessageSlot> {
-        if self.header.is_empty() { return None; }
+        if self.header.is_empty() {
+            return None;
+        }
 
         let read = self.header.read_idx.load_relaxed();
         let write = self.header.write_idx.load_acquire();
-        if read == write { return None; }
+        if read == write {
+            return None;
+        }
 
         let idx = read & self.mask;
         let slot = unsafe { &*self.slots[idx].get() };
 
-        if !slot.is_valid() { return None; }
+        if !slot.is_valid() {
+            return None;
+        }
 
         // Record latency
         let now_ns = SystemTime::now()
@@ -339,12 +358,20 @@ impl SpscIpcRing {
             .unwrap_or_default()
             .as_nanos() as u64;
         let latency = now_ns.saturating_sub(slot.timestamp_ns);
-        self.stats.total_latency_ns.fetch_add(latency, Ordering::Relaxed);
+        self.stats
+            .total_latency_ns
+            .fetch_add(latency, Ordering::Relaxed);
         self.stats.messages_received.fetch_add(1, Ordering::Relaxed);
 
         // Update min/max
-        let _ = self.stats.min_latency_ns.fetch_min(latency, Ordering::Relaxed);
-        let _ = self.stats.max_latency_ns.fetch_max(latency, Ordering::Relaxed);
+        let _ = self
+            .stats
+            .min_latency_ns
+            .fetch_min(latency, Ordering::Relaxed);
+        let _ = self
+            .stats
+            .max_latency_ns
+            .fetch_max(latency, Ordering::Relaxed);
 
         self.header.read_idx.store_release(read.wrapping_add(1));
         Some(slot)
@@ -369,18 +396,40 @@ impl SpscIpcRing {
 pub fn print_ipc_report(stats: &IpcStats, elapsed: Duration) {
     use console::style;
     println!();
-    println!("  {} {}", style("Shared Memory IPC Report").cyan().bold(),
-        style("━━━━━━━━━━━━━━━━━━━━━━━━").dim());
-    println!("  {} Messages sent:     {}",
-        style("▸").dim(), style(stats.messages_sent.load(Ordering::Relaxed)).green().bold());
-    println!("  {} Messages received: {}",
-        style("▸").dim(), style(stats.messages_received.load(Ordering::Relaxed)).green().bold());
-    println!("  {} Avg latency:       {:.0} ns",
-        style("⚡").yellow(), stats.avg_latency_ns());
-    println!("  {} Throughput:        {:.0} msg/sec",
-        style("⚡").yellow(), stats.throughput_mps(elapsed));
-    println!("  {} Push failures:     {}",
-        style("▸").dim(), stats.push_failures.load(Ordering::Relaxed));
+    println!(
+        "  {} {}",
+        style("Shared Memory IPC Report").cyan().bold(),
+        style("━━━━━━━━━━━━━━━━━━━━━━━━").dim()
+    );
+    println!(
+        "  {} Messages sent:     {}",
+        style("▸").dim(),
+        style(stats.messages_sent.load(Ordering::Relaxed))
+            .green()
+            .bold()
+    );
+    println!(
+        "  {} Messages received: {}",
+        style("▸").dim(),
+        style(stats.messages_received.load(Ordering::Relaxed))
+            .green()
+            .bold()
+    );
+    println!(
+        "  {} Avg latency:       {:.0} ns",
+        style("⚡").yellow(),
+        stats.avg_latency_ns()
+    );
+    println!(
+        "  {} Throughput:        {:.0} msg/sec",
+        style("⚡").yellow(),
+        stats.throughput_mps(elapsed)
+    );
+    println!(
+        "  {} Push failures:     {}",
+        style("▸").dim(),
+        stats.push_failures.load(Ordering::Relaxed)
+    );
     println!();
 }
 

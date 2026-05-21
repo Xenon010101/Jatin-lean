@@ -187,19 +187,25 @@ impl IoUringStats {
 
     pub fn avg_submit_ns(&self) -> f64 {
         let s = self.submissions.load(Ordering::Relaxed);
-        if s == 0 { return 0.0; }
+        if s == 0 {
+            return 0.0;
+        }
         self.total_submit_ns.load(Ordering::Relaxed) as f64 / s as f64
     }
 
     pub fn avg_completion_ns(&self) -> f64 {
         let c = self.completions.load(Ordering::Relaxed);
-        if c == 0 { return 0.0; }
+        if c == 0 {
+            return 0.0;
+        }
         self.total_complete_ns.load(Ordering::Relaxed) as f64 / c as f64
     }
 
     pub fn iops(&self, wall_time: Duration) -> f64 {
         let secs = wall_time.as_secs_f64();
-        if secs < 1e-9 { return 0.0; }
+        if secs < 1e-9 {
+            return 0.0;
+        }
         self.completions.load(Ordering::Relaxed) as f64 / secs
     }
 }
@@ -221,7 +227,10 @@ impl IoUringEngine {
         self.next_user_data += 1;
 
         self.submission_queue.push_back(SubmissionEntry {
-            op, path, flags, user_data,
+            op,
+            path,
+            flags,
+            user_data,
             submitted_at: Instant::now(),
         });
 
@@ -232,27 +241,37 @@ impl IoUringEngine {
     /// Submit a batch of stat operations (the core scanning optimization).
     pub fn submit_stat_batch(&mut self, paths: &[PathBuf]) -> Vec<u64> {
         let start = Instant::now();
-        let ids: Vec<u64> = paths.iter()
+        let ids: Vec<u64> = paths
+            .iter()
             .map(|p| self.submit(IoOp::Stat, p.clone(), 0))
             .collect();
         let elapsed = start.elapsed();
         self.stats.batches.fetch_add(1, Ordering::Relaxed);
-        self.stats.total_submit_ns.fetch_add(elapsed.as_nanos() as u64, Ordering::Relaxed);
+        self.stats
+            .total_submit_ns
+            .fetch_add(elapsed.as_nanos() as u64, Ordering::Relaxed);
         // Each batched op saves one syscall vs individual stat() calls
-        self.stats.syscalls_saved.fetch_add(ids.len().saturating_sub(1) as u64, Ordering::Relaxed);
+        self.stats
+            .syscalls_saved
+            .fetch_add(ids.len().saturating_sub(1) as u64, Ordering::Relaxed);
         ids
     }
 
     /// Submit a batch of unlink operations (deletion optimization).
     pub fn submit_unlink_batch(&mut self, paths: &[PathBuf]) -> Vec<u64> {
         let start = Instant::now();
-        let ids: Vec<u64> = paths.iter()
+        let ids: Vec<u64> = paths
+            .iter()
             .map(|p| self.submit(IoOp::Unlink, p.clone(), 0))
             .collect();
         let elapsed = start.elapsed();
         self.stats.batches.fetch_add(1, Ordering::Relaxed);
-        self.stats.total_submit_ns.fetch_add(elapsed.as_nanos() as u64, Ordering::Relaxed);
-        self.stats.syscalls_saved.fetch_add(ids.len().saturating_sub(1) as u64, Ordering::Relaxed);
+        self.stats
+            .total_submit_ns
+            .fetch_add(elapsed.as_nanos() as u64, Ordering::Relaxed);
+        self.stats
+            .syscalls_saved
+            .fetch_add(ids.len().saturating_sub(1) as u64, Ordering::Relaxed);
         ids
     }
 
@@ -273,7 +292,9 @@ impl IoUringEngine {
         }
 
         let elapsed = start.elapsed();
-        self.stats.total_complete_ns.fetch_add(elapsed.as_nanos() as u64, Ordering::Relaxed);
+        self.stats
+            .total_complete_ns
+            .fetch_add(elapsed.as_nanos() as u64, Ordering::Relaxed);
         results
     }
 
@@ -302,28 +323,32 @@ pub fn io_api_comparison() -> Vec<IoApiComparison> {
             api: "read()/write() (Traditional)",
             syscalls_per_op: "1 per operation",
             batching: "None",
-            kernel_bypass: false, zero_copy: false,
+            kernel_bypass: false,
+            zero_copy: false,
             best_for: "Simple sequential I/O",
         },
         IoApiComparison {
             api: "epoll (Event-driven)",
             syscalls_per_op: "1 per batch (epoll_wait)",
             batching: "Event batching only",
-            kernel_bypass: false, zero_copy: false,
+            kernel_bypass: false,
+            zero_copy: false,
             best_for: "Network servers (nginx, Node.js)",
         },
         IoApiComparison {
             api: "aio (Linux AIO)",
             syscalls_per_op: "1 per batch (io_submit)",
             batching: "Submission batching",
-            kernel_bypass: false, zero_copy: true,
+            kernel_bypass: false,
+            zero_copy: true,
             best_for: "Database engines (O_DIRECT)",
         },
         IoApiComparison {
             api: "io_uring (Modern)",
             syscalls_per_op: "0 (SQPOLL mode)",
             batching: "Full SQ/CQ ring batching",
-            kernel_bypass: true, zero_copy: true,
+            kernel_bypass: true,
+            zero_copy: true,
             best_for: "Everything (file, network, timers)",
         },
     ]
@@ -333,23 +358,53 @@ pub fn io_api_comparison() -> Vec<IoApiComparison> {
 pub fn print_iouring_report(stats: &IoUringStats, config: &IoUringConfig, wall_time: Duration) {
     use console::style;
     println!();
-    println!("  {} {}", style("io_uring Async I/O Engine").cyan().bold(),
-        style("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━").dim());
-    println!("  {} SQ depth: {} | CQ depth: {} | SQPOLL: {} | IOPOLL: {}",
-        style("▸").dim(), config.sq_depth, config.cq_depth,
+    println!(
+        "  {} {}",
+        style("io_uring Async I/O Engine").cyan().bold(),
+        style("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━").dim()
+    );
+    println!(
+        "  {} SQ depth: {} | CQ depth: {} | SQPOLL: {} | IOPOLL: {}",
+        style("▸").dim(),
+        config.sq_depth,
+        config.cq_depth,
         if config.sqpoll { "✓" } else { "✗" },
-        if config.iopoll { "✓" } else { "✗" });
-    println!("  {} Submissions:    {}", style("▸").dim(),
-        stats.submissions.load(Ordering::Relaxed));
-    println!("  {} Completions:    {}", style("▸").dim(),
-        stats.completions.load(Ordering::Relaxed));
-    println!("  {} Batches:        {}", style("▸").dim(),
-        stats.batches.load(Ordering::Relaxed));
-    println!("  {} Syscalls saved: {}", style("⚡").yellow(),
-        style(stats.syscalls_saved.load(Ordering::Relaxed)).green().bold());
-    println!("  {} Avg submit:     {:.0} ns", style("▸").dim(), stats.avg_submit_ns());
-    println!("  {} IOPS:           {:.0}", style("🚀").yellow(),
-        style(format!("{:.0}", stats.iops(wall_time))).green().bold());
+        if config.iopoll { "✓" } else { "✗" }
+    );
+    println!(
+        "  {} Submissions:    {}",
+        style("▸").dim(),
+        stats.submissions.load(Ordering::Relaxed)
+    );
+    println!(
+        "  {} Completions:    {}",
+        style("▸").dim(),
+        stats.completions.load(Ordering::Relaxed)
+    );
+    println!(
+        "  {} Batches:        {}",
+        style("▸").dim(),
+        stats.batches.load(Ordering::Relaxed)
+    );
+    println!(
+        "  {} Syscalls saved: {}",
+        style("⚡").yellow(),
+        style(stats.syscalls_saved.load(Ordering::Relaxed))
+            .green()
+            .bold()
+    );
+    println!(
+        "  {} Avg submit:     {:.0} ns",
+        style("▸").dim(),
+        stats.avg_submit_ns()
+    );
+    println!(
+        "  {} IOPS:           {:.0}",
+        style("🚀").yellow(),
+        style(format!("{:.0}", stats.iops(wall_time)))
+            .green()
+            .bold()
+    );
     println!();
 }
 
@@ -370,7 +425,9 @@ mod tests {
     #[test]
     fn test_stat_batch() {
         let mut engine = IoUringEngine::new(IoUringConfig::default());
-        let paths: Vec<PathBuf> = (0..100).map(|i| PathBuf::from(format!("/file-{}", i))).collect();
+        let paths: Vec<PathBuf> = (0..100)
+            .map(|i| PathBuf::from(format!("/file-{}", i)))
+            .collect();
         let ids = engine.submit_stat_batch(&paths);
         assert_eq!(ids.len(), 100);
         assert_eq!(engine.stats.syscalls_saved.load(Ordering::Relaxed), 99);
@@ -394,7 +451,9 @@ mod tests {
     #[test]
     fn test_unlink_batch() {
         let mut engine = IoUringEngine::new(IoUringConfig::default());
-        let paths: Vec<PathBuf> = (0..50).map(|i| PathBuf::from(format!("/del-{}", i))).collect();
+        let paths: Vec<PathBuf> = (0..50)
+            .map(|i| PathBuf::from(format!("/del-{}", i)))
+            .collect();
         let ids = engine.submit_unlink_batch(&paths);
         assert_eq!(ids.len(), 50);
         let results = engine.flush();

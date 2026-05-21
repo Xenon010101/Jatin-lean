@@ -343,29 +343,58 @@ pub struct MatchCriteria {
     pub dst_ip: Option<IpAddr>,
     pub src_port: Option<u16>,
     pub dst_port: Option<u16>,
-    pub protocol: Option<u8>,  // 6=TCP, 17=UDP
+    pub protocol: Option<u8>, // 6=TCP, 17=UDP
     pub ether_type: Option<u16>,
 }
 
 impl Default for MatchCriteria {
     fn default() -> Self {
         Self {
-            src_ip: None, dst_ip: None,
-            src_port: None, dst_port: None,
-            protocol: None, ether_type: None,
+            src_ip: None,
+            dst_ip: None,
+            src_port: None,
+            dst_port: None,
+            protocol: None,
+            ether_type: None,
         }
     }
 }
 
 impl MatchCriteria {
     /// Check if a packet (represented as parsed fields) matches.
-    pub fn matches(&self, src_ip: IpAddr, dst_ip: IpAddr,
-                   src_port: u16, dst_port: u16, protocol: u8) -> bool {
-        if let Some(s) = self.src_ip { if s != src_ip { return false; } }
-        if let Some(d) = self.dst_ip { if d != dst_ip { return false; } }
-        if let Some(sp) = self.src_port { if sp != src_port { return false; } }
-        if let Some(dp) = self.dst_port { if dp != dst_port { return false; } }
-        if let Some(p) = self.protocol { if p != protocol { return false; } }
+    pub fn matches(
+        &self,
+        src_ip: IpAddr,
+        dst_ip: IpAddr,
+        src_port: u16,
+        dst_port: u16,
+        protocol: u8,
+    ) -> bool {
+        if let Some(s) = self.src_ip {
+            if s != src_ip {
+                return false;
+            }
+        }
+        if let Some(d) = self.dst_ip {
+            if d != dst_ip {
+                return false;
+            }
+        }
+        if let Some(sp) = self.src_port {
+            if sp != src_port {
+                return false;
+            }
+        }
+        if let Some(dp) = self.dst_port {
+            if dp != dst_port {
+                return false;
+            }
+        }
+        if let Some(p) = self.protocol {
+            if p != protocol {
+                return false;
+            }
+        }
         true
     }
 }
@@ -414,14 +443,18 @@ impl XdpStats {
     /// Packets per second throughput.
     pub fn pps(&self) -> f64 {
         let elapsed = self.started_at.elapsed().as_secs_f64();
-        if elapsed < 0.001 { return 0.0; }
+        if elapsed < 0.001 {
+            return 0.0;
+        }
         self.packets_received.load(Ordering::Relaxed) as f64 / elapsed
     }
 
     /// Gbps throughput.
     pub fn gbps(&self) -> f64 {
         let elapsed = self.started_at.elapsed().as_secs_f64();
-        if elapsed < 0.001 { return 0.0; }
+        if elapsed < 0.001 {
+            return 0.0;
+        }
         let bytes = self.bytes_processed.load(Ordering::Relaxed) as f64;
         (bytes * 8.0) / (elapsed * 1_000_000_000.0)
     }
@@ -457,10 +490,19 @@ impl XdpControlPlane {
     }
 
     /// Evaluate rules against a packet and return the action.
-    pub fn evaluate_packet(&self, src_ip: IpAddr, dst_ip: IpAddr,
-                           src_port: u16, dst_port: u16, protocol: u8) -> XdpAction {
+    pub fn evaluate_packet(
+        &self,
+        src_ip: IpAddr,
+        dst_ip: IpAddr,
+        src_port: u16,
+        dst_port: u16,
+        protocol: u8,
+    ) -> XdpAction {
         for rule in &self.rules {
-            if rule.match_criteria.matches(src_ip, dst_ip, src_port, dst_port, protocol) {
+            if rule
+                .match_criteria
+                .matches(src_ip, dst_ip, src_port, dst_port, protocol)
+            {
                 rule.hit_count.fetch_add(1, Ordering::Relaxed);
                 return rule.action;
             }
@@ -524,7 +566,9 @@ impl XdpControlPlane {
     /// In production, this would invoke bpf(BPF_PROG_TEST_RUN) syscall.
     pub fn inject_live_frame(&self, packet: &[u8], interface: &str) -> XdpAction {
         self.stats.packets_received.fetch_add(1, Ordering::Relaxed);
-        self.stats.bytes_processed.fetch_add(packet.len() as u64, Ordering::Relaxed);
+        self.stats
+            .bytes_processed
+            .fetch_add(packet.len() as u64, Ordering::Relaxed);
 
         // Simulate the XDP_TX action (transmit immediately)
         self.stats.packets_tx.fetch_add(1, Ordering::Relaxed);
@@ -533,7 +577,9 @@ impl XdpControlPlane {
 
     /// Maglev consistent hashing for backend selection.
     pub fn maglev_hash(&self, src_ip: u32, dst_port: u16) -> Option<usize> {
-        if self.config.backends.is_empty() { return None; }
+        if self.config.backends.is_empty() {
+            return None;
+        }
         // FNV-1a hash
         let mut hash: u64 = 0xcbf29ce484222325;
         for byte in src_ip.to_le_bytes() {
@@ -570,13 +616,19 @@ pub fn print_architecture_comparison() {
     ];
 
     println!();
-    println!("  {} {}", style("XDP Architecture Comparison").cyan().bold(),
-        style("━━━━━━━━━━━━━━━━━━━━━━━━━━").dim());
+    println!(
+        "  {} {}",
+        style("XDP Architecture Comparison").cyan().bold(),
+        style("━━━━━━━━━━━━━━━━━━━━━━━━━━").dim()
+    );
     for p in &paradigms {
-        println!("  {} {} | {} | {}",
-            style("▸").dim(), style(p).yellow().bold(),
+        println!(
+            "  {} {} | {} | {}",
+            style("▸").dim(),
+            style(p).yellow().bold(),
             style(p.throughput_profile()).white(),
-            style(p.security_integration()).dim());
+            style(p.security_integration()).dim()
+        );
     }
     println!();
 }
@@ -626,15 +678,19 @@ mod tests {
     fn test_maglev_hash() {
         let mut config = XdpLoadBalancerConfig::default();
         config.backends.push(BackendServer {
-            id: 0, addr: "10.0.0.1:80".parse().unwrap(),
-            weight: 1, health: ServerHealth::Healthy,
+            id: 0,
+            addr: "10.0.0.1:80".parse().unwrap(),
+            weight: 1,
+            health: ServerHealth::Healthy,
             active_connections: AtomicU64::new(0),
             total_requests: AtomicU64::new(0),
             total_bytes: AtomicU64::new(0),
         });
         config.backends.push(BackendServer {
-            id: 1, addr: "10.0.0.2:80".parse().unwrap(),
-            weight: 1, health: ServerHealth::Healthy,
+            id: 1,
+            addr: "10.0.0.2:80".parse().unwrap(),
+            weight: 1,
+            health: ServerHealth::Healthy,
             active_connections: AtomicU64::new(0),
             total_requests: AtomicU64::new(0),
             total_bytes: AtomicU64::new(0),

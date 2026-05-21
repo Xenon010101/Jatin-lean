@@ -161,7 +161,11 @@ impl StrategyEngine {
         }
 
         // 3. Check deep analysis list
-        if self.heuristics.deep_analysis_packages.contains(&profile.name) {
+        if self
+            .heuristics
+            .deep_analysis_packages
+            .contains(&profile.name)
+        {
             return ScanStrategy::DeepAnalysis;
         }
 
@@ -251,10 +255,14 @@ mod tests {
         let engine = StrategyEngine::new();
         let profile = PackageProfile {
             name: ".bin".to_string(),
-            file_count: 0, total_size: 0,
-            has_package_json: false, has_native_bindings: false,
-            is_scoped: false, is_cached: false,
-            framework: None, previous_scan_time: None,
+            file_count: 0,
+            total_size: 0,
+            has_package_json: false,
+            has_native_bindings: false,
+            is_scoped: false,
+            is_cached: false,
+            framework: None,
+            previous_scan_time: None,
         };
         assert_eq!(engine.select_strategy(&profile), ScanStrategy::Skip);
     }
@@ -264,10 +272,14 @@ mod tests {
         let engine = StrategyEngine::new();
         let profile = PackageProfile {
             name: "lodash".to_string(),
-            file_count: 100, total_size: 1_000_000,
-            has_package_json: true, has_native_bindings: false,
-            is_scoped: false, is_cached: true,
-            framework: None, previous_scan_time: None,
+            file_count: 100,
+            total_size: 1_000_000,
+            has_package_json: true,
+            has_native_bindings: false,
+            is_scoped: false,
+            is_cached: true,
+            framework: None,
+            previous_scan_time: None,
         };
         assert_eq!(engine.select_strategy(&profile), ScanStrategy::Cached);
     }
@@ -277,10 +289,14 @@ mod tests {
         let engine = StrategyEngine::new();
         let profile = PackageProfile {
             name: "tiny-pkg".to_string(),
-            file_count: 5, total_size: 1024,
-            has_package_json: true, has_native_bindings: false,
-            is_scoped: false, is_cached: false,
-            framework: None, previous_scan_time: None,
+            file_count: 5,
+            total_size: 1024,
+            has_package_json: true,
+            has_native_bindings: false,
+            is_scoped: false,
+            is_cached: false,
+            framework: None,
+            previous_scan_time: None,
         };
         assert_eq!(engine.select_strategy(&profile), ScanStrategy::FastPath);
     }
@@ -290,10 +306,14 @@ mod tests {
         let engine = StrategyEngine::new();
         let profile = PackageProfile {
             name: "webpack".to_string(),
-            file_count: 500, total_size: 5_000_000,
-            has_package_json: true, has_native_bindings: false,
-            is_scoped: false, is_cached: false,
-            framework: None, previous_scan_time: None,
+            file_count: 500,
+            total_size: 5_000_000,
+            has_package_json: true,
+            has_native_bindings: false,
+            is_scoped: false,
+            is_cached: false,
+            framework: None,
+            previous_scan_time: None,
         };
         assert_eq!(engine.select_strategy(&profile), ScanStrategy::DeepAnalysis);
     }
@@ -303,10 +323,14 @@ mod tests {
         let engine = StrategyEngine::new();
         let profile = PackageProfile {
             name: "node-sass".to_string(),
-            file_count: 10, total_size: 500,
-            has_package_json: true, has_native_bindings: true,
-            is_scoped: false, is_cached: false,
-            framework: None, previous_scan_time: None,
+            file_count: 10,
+            total_size: 500,
+            has_package_json: true,
+            has_native_bindings: true,
+            is_scoped: false,
+            is_cached: false,
+            framework: None,
+            previous_scan_time: None,
         };
         assert_eq!(engine.select_strategy(&profile), ScanStrategy::DeepAnalysis);
     }

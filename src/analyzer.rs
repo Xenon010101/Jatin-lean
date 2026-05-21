@@ -85,14 +85,22 @@ impl Framework {
     /// Category for grouping (UI, Server, Build, Test, Lint)
     pub fn category(&self) -> &'static str {
         match self {
-            Framework::React | Framework::Vue | Framework::Angular
-            | Framework::Svelte | Framework::Next | Framework::Nuxt
+            Framework::React
+            | Framework::Vue
+            | Framework::Angular
+            | Framework::Svelte
+            | Framework::Next
+            | Framework::Nuxt
             | Framework::Tailwind => "UI Framework",
             Framework::Express | Framework::Fastify | Framework::Nest => "Server Framework",
             Framework::Electron | Framework::ReactNative => "Platform",
             Framework::Jest | Framework::Mocha => "Testing",
-            Framework::Webpack | Framework::Vite | Framework::Rollup
-            | Framework::ESBuild | Framework::Babel | Framework::TypeScript => "Build Tool",
+            Framework::Webpack
+            | Framework::Vite
+            | Framework::Rollup
+            | Framework::ESBuild
+            | Framework::Babel
+            | Framework::TypeScript => "Build Tool",
             Framework::Prettier | Framework::ESLint => "Linting",
             Framework::Unknown => "Other",
         }
@@ -166,22 +174,29 @@ pub fn analyze_project(nm_path: &Path) -> anyhow::Result<ProjectAnalysis> {
     if let Ok(entries) = fs::read_dir(nm_path) {
         for entry in entries.flatten() {
             let pkg_path = entry.path();
-            if !pkg_path.is_dir() { continue; }
+            if !pkg_path.is_dir() {
+                continue;
+            }
 
             let name = entry.file_name().to_string_lossy().to_string();
-            if name.starts_with('.') { continue; }
+            if name.starts_with('.') {
+                continue;
+            }
 
             if name.starts_with('@') {
                 // Scoped packages
                 if let Ok(scoped) = fs::read_dir(&pkg_path) {
                     for se in scoped.flatten() {
                         if se.path().is_dir() {
-                            let full_name = format!("{}/{}", name, se.file_name().to_string_lossy());
+                            let full_name =
+                                format!("{}/{}", name, se.file_name().to_string_lossy());
                             if let Some(analysis) = analyze_package(&se.path(), &full_name) {
                                 for fw in &analysis.frameworks {
                                     *framework_counts.entry(fw.clone()).or_default() += 1;
                                 }
-                                *type_counts.entry(analysis.package_type.label().to_string()).or_default() += 1;
+                                *type_counts
+                                    .entry(analysis.package_type.label().to_string())
+                                    .or_default() += 1;
                                 analyses.push(analysis);
                             }
                         }
@@ -192,7 +207,9 @@ pub fn analyze_project(nm_path: &Path) -> anyhow::Result<ProjectAnalysis> {
                     for fw in &analysis.frameworks {
                         *framework_counts.entry(fw.clone()).or_default() += 1;
                     }
-                    *type_counts.entry(analysis.package_type.label().to_string()).or_default() += 1;
+                    *type_counts
+                        .entry(analysis.package_type.label().to_string())
+                        .or_default() += 1;
                     analyses.push(analysis);
                 }
             }
@@ -210,12 +227,15 @@ pub fn analyze_project(nm_path: &Path) -> anyhow::Result<ProjectAnalysis> {
 /// Analyze a single package directory.
 pub fn analyze_package(pkg_path: &Path, name: &str) -> Option<PackageAnalysis> {
     let pkg_json_path = pkg_path.join("package.json");
-    if !pkg_json_path.exists() { return None; }
+    if !pkg_json_path.exists() {
+        return None;
+    }
 
     let content = fs::read_to_string(&pkg_json_path).ok()?;
     let json: serde_json::Value = serde_json::from_str(&content).ok()?;
 
-    let version = json.get("version")
+    let version = json
+        .get("version")
         .and_then(|v| v.as_str())
         .unwrap_or("0.0.0")
         .to_string();
@@ -223,14 +243,19 @@ pub fn analyze_package(pkg_path: &Path, name: &str) -> Option<PackageAnalysis> {
     let has_bin = json.get("bin").is_some();
     let has_types = json.get("types").is_some() || json.get("typings").is_some();
     let has_native = pkg_path.join("binding.gyp").exists()
-        || json.get("gypfile").and_then(|v| v.as_bool()).unwrap_or(false);
+        || json
+            .get("gypfile")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
 
-    let dep_count = json.get("dependencies")
+    let dep_count = json
+        .get("dependencies")
         .and_then(|v| v.as_object())
         .map(|o| o.len())
         .unwrap_or(0);
 
-    let dev_dep_count = json.get("devDependencies")
+    let dev_dep_count = json
+        .get("devDependencies")
         .and_then(|v| v.as_object())
         .map(|o| o.len())
         .unwrap_or(0);
@@ -346,8 +371,7 @@ fn classify_package_type(
 
     // Framework detection
     let framework_names = [
-        "react", "vue", "angular", "svelte", "express",
-        "fastify", "next", "nuxt", "electron",
+        "react", "vue", "angular", "svelte", "express", "fastify", "next", "nuxt", "electron",
     ];
     for fw in &framework_names {
         if lower == *fw {
@@ -356,8 +380,11 @@ fn classify_package_type(
     }
 
     // Plugin detection
-    if lower.contains("-plugin") || lower.contains("-loader")
-        || lower.contains("-preset") || lower.contains("-adapter") {
+    if lower.contains("-plugin")
+        || lower.contains("-loader")
+        || lower.contains("-preset")
+        || lower.contains("-adapter")
+    {
         return PackageType::Plugin;
     }
 
@@ -367,7 +394,9 @@ fn classify_package_type(
     }
 
     // Dev tool detection
-    let dev_tools = ["eslint", "prettier", "webpack", "babel", "jest", "mocha", "rollup", "vite"];
+    let dev_tools = [
+        "eslint", "prettier", "webpack", "babel", "jest", "mocha", "rollup", "vite",
+    ];
     for tool in &dev_tools {
         if lower.contains(tool) {
             return PackageType::DevTool;
@@ -379,7 +408,8 @@ fn classify_package_type(
     }
 
     // Small utility heuristic
-    let dep_count = json.get("dependencies")
+    let dep_count = json
+        .get("dependencies")
         .and_then(|v| v.as_object())
         .map(|o| o.len())
         .unwrap_or(0);
@@ -411,14 +441,10 @@ fn get_extra_prunable_patterns(frameworks: &[Framework]) -> Vec<String> {
                 ]);
             }
             Framework::Babel => {
-                patterns.extend_from_slice(&[
-                    "src/".to_string(),
-                ]);
+                patterns.extend_from_slice(&["src/".to_string()]);
             }
             Framework::Jest => {
-                patterns.extend_from_slice(&[
-                    "build/".to_string(),
-                ]);
+                patterns.extend_from_slice(&["build/".to_string()]);
             }
             _ => {}
         }

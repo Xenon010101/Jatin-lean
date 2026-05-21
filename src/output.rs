@@ -1,8 +1,8 @@
 //! Output formatting and JSON serialization for the v2.0 CLI.
 
-use serde::Serialize;
 use anyhow::Result;
 use console::style;
+use serde::Serialize;
 
 /// Context for controlling output format across all commands.
 pub struct OutputContext {
@@ -34,11 +34,7 @@ fn current_timestamp() -> String {
 }
 
 /// Output a successful result, either as JSON or letting the caller handle human output.
-pub fn output_result<T: Serialize>(
-    command: &str,
-    result: T,
-    ctx: &OutputContext,
-) -> Result<()> {
+pub fn output_result<T: Serialize>(command: &str, result: T, ctx: &OutputContext) -> Result<()> {
     if ctx.json {
         let output = JsonOutput {
             command: command.to_string(),
@@ -62,11 +58,7 @@ pub fn output_result<T: Serialize>(
 }
 
 /// Output an error, either as JSON or as styled terminal text.
-pub fn output_error(
-    command: &str,
-    error: &str,
-    ctx: &OutputContext,
-) -> Result<()> {
+pub fn output_error(command: &str, error: &str, ctx: &OutputContext) -> Result<()> {
     if ctx.json {
         let output = JsonError {
             command: command.to_string(),

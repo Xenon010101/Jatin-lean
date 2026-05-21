@@ -273,18 +273,25 @@ pub fn print_performance_dashboard(metrics: &crate::profiler::PerformanceMetrics
     println!(
         "  {} Files/sec: {}",
         style("⚡").yellow(),
-        style(format!("{:.0}", metrics.files_per_second)).green().bold(),
+        style(format!("{:.0}", metrics.files_per_second))
+            .green()
+            .bold(),
     );
     println!(
         "  {} MB/sec: {}",
         style("⚡").yellow(),
-        style(format!("{:.2}", metrics.bytes_per_second / 1_000_000.0)).green().bold(),
+        style(format!("{:.2}", metrics.bytes_per_second / 1_000_000.0))
+            .green()
+            .bold(),
     );
     println!(
         "  {} Packages: {} at {}/pkg avg",
         style("📦").dim(),
         style(metrics.packages_scanned).white().bold(),
-        style(crate::profiler::format_duration(metrics.avg_time_per_package)).dim(),
+        style(crate::profiler::format_duration(
+            metrics.avg_time_per_package
+        ))
+        .dim(),
     );
 
     // Phase breakdown

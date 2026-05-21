@@ -1,5 +1,5 @@
 //! Node.js bindings for jatin-lean
-//! 
+//!
 //! This module exposes jatin-lean functionality to Node.js via N-API
 
 use napi::bindgen_prelude::*;
@@ -8,8 +8,8 @@ use std::path::PathBuf;
 
 // Re-export core functionality
 use crate::{
-    scanner, health, dedup, compress, treeshake, lockfile, analyzer,
-    rules, hardware_tuning, simd, benchmark,
+    analyzer, benchmark, compress, dedup, hardware_tuning, health, lockfile, rules, scanner, simd,
+    treeshake,
 };
 
 /// Scan result for Node.js
@@ -68,18 +68,18 @@ pub struct BenchmarkResult {
 pub fn scan_node_modules(path: String) -> Result<ScanResult> {
     let path_buf = PathBuf::from(path);
     let nm_path = path_buf.join("node_modules");
-    
+
     let rules = rules::PruneRules::new();
     let result = scanner::scan_node_modules(&nm_path, &rules, None)
         .map_err(|e| Error::from_reason(format!("Scan failed: {}", e)))?;
-    
+
     let savings = result.savings();
     let savings_pct = if result.total_size > 0 {
         (savings as f64 / result.total_size as f64 * 100.0)
     } else {
         0.0
     };
-    
+
     Ok(ScanResult {
         total_files: result.total_files as u32,
         total_size: result.total_size as f64,
@@ -95,16 +95,16 @@ pub fn scan_node_modules(path: String) -> Result<ScanResult> {
 pub fn check_health(path: String) -> Result<HealthResult> {
     let path_buf = PathBuf::from(path);
     let nm_path = path_buf.join("node_modules");
-    
+
     let report = health::check_health(&nm_path)
         .map_err(|e| Error::from_reason(format!("Health check failed: {}", e)))?;
-    
+
     // Extract issue counts by category
     let mut missing_deps = Vec::new();
     let mut circular_deps = Vec::new();
     let mut outdated_count = 0;
     let mut security_issues = 0;
-    
+
     for issue in &report.issues {
         match issue.category {
             health::IssueCategory::MissingPeerDep => {
@@ -124,13 +124,13 @@ pub fn check_health(path: String) -> Result<HealthResult> {
             _ => {}
         }
     }
-    
+
     let overall = match report.grade {
         health::HealthGrade::A | health::HealthGrade::B => "healthy".to_string(),
         health::HealthGrade::C => "warning".to_string(),
         health::HealthGrade::D | health::HealthGrade::F => "critical".to_string(),
     };
-    
+
     Ok(HealthResult {
         missing_deps,
         circular_deps,
@@ -145,10 +145,10 @@ pub fn check_health(path: String) -> Result<HealthResult> {
 pub fn find_duplicates(path: String) -> Result<DedupResult> {
     let path_buf = PathBuf::from(path);
     let nm_path = path_buf.join("node_modules");
-    
+
     let result = dedup::find_duplicates(&nm_path)
         .map_err(|e| Error::from_reason(format!("Dedup failed: {}", e)))?;
-    
+
     Ok(DedupResult {
         duplicate_groups: result.duplicate_groups.len() as u32,
         total_duplicates: result.total_extra_copies as u32,
@@ -162,10 +162,10 @@ pub fn find_duplicates(path: String) -> Result<DedupResult> {
 pub fn analyze_compression(path: String) -> Result<f64> {
     let path_buf = PathBuf::from(path);
     let nm_path = path_buf.join("node_modules");
-    
+
     let result = compress::analyze_compression(&nm_path)
         .map_err(|e| Error::from_reason(format!("Compression analysis failed: {}", e)))?;
-    
+
     Ok(result.gzip_savings_pct())
 }
 
@@ -174,16 +174,16 @@ pub fn analyze_compression(path: String) -> Result<f64> {
 pub fn analyze_treeshake(path: String) -> Result<f64> {
     let path_buf = PathBuf::from(path);
     let nm_path = path_buf.join("node_modules");
-    
+
     let result = treeshake::analyze_treeshake(&nm_path)
         .map_err(|e| Error::from_reason(format!("Tree-shake analysis failed: {}", e)))?;
-    
+
     let savings_pct = if result.total_exports > 0 {
         (result.unused_exports as f64 / result.total_exports as f64 * 100.0)
     } else {
         0.0
     };
-    
+
     Ok(savings_pct)
 }
 
@@ -191,10 +191,10 @@ pub fn analyze_treeshake(path: String) -> Result<f64> {
 #[napi]
 pub fn get_dependency_graph(path: String) -> Result<u32> {
     let path_buf = PathBuf::from(path);
-    
+
     let graph = lockfile::DependencyGraph::from_project(&path_buf)
         .map_err(|e| Error::from_reason(format!("Dependency analysis failed: {}", e)))?;
-    
+
     Ok(graph.total_deps() as u32)
 }
 
@@ -202,17 +202,19 @@ pub fn get_dependency_graph(path: String) -> Result<u32> {
 #[napi]
 pub fn assess_system() -> Result<SystemAssessment> {
     let assessment = hardware_tuning::assess_system();
-    
-    let recommendations: Vec<String> = assessment.recommendations.iter()
+
+    let recommendations: Vec<String> = assessment
+        .recommendations
+        .iter()
         .map(|r| format!("{}: {}", r.category, r.description))
         .collect();
-    
+
     // Calculate scores (simplified)
     let cpu_score = 75;
     let memory_score = 80;
     let io_score = 70;
     let overall_score = (cpu_score + memory_score + io_score) / 3;
-    
+
     Ok(SystemAssessment {
         recommendations,
         cpu_score,
@@ -233,8 +235,10 @@ pub fn detect_cpu_capabilities() -> Result<String> {
 #[napi]
 pub fn run_benchmarks() -> Result<Vec<BenchmarkResult>> {
     let suite = benchmark::run_builtin_benchmarks();
-    
-    let results: Vec<BenchmarkResult> = suite.results().iter()
+
+    let results: Vec<BenchmarkResult> = suite
+        .results()
+        .iter()
         .map(|r| BenchmarkResult {
             name: r.name.clone(),
             mean_ns: r.mean_ns(),
@@ -244,7 +248,7 @@ pub fn run_benchmarks() -> Result<Vec<BenchmarkResult>> {
             ops_per_sec: r.ops_per_sec(),
         })
         .collect();
-    
+
     Ok(results)
 }
 
@@ -274,7 +278,7 @@ pub struct SystemInfo {
 #[napi]
 pub fn get_ai_context() -> Result<AiContext> {
     let caps = simd::CpuCapabilities::detect();
-    
+
     Ok(AiContext {
         tool: "jatin-lean".to_string(),
         version: env!("CARGO_PKG_VERSION").to_string(),

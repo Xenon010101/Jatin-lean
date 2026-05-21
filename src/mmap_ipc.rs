@@ -22,7 +22,10 @@ pub struct PaddedAtomicUsize {
 
 impl PaddedAtomicUsize {
     pub fn new(v: usize) -> Self {
-        Self { value: std::cell::UnsafeCell::new(v), _pad: [0; 56] }
+        Self {
+            value: std::cell::UnsafeCell::new(v),
+            _pad: [0; 56],
+        }
     }
 
     pub fn load(&self, _order: Ordering) -> usize {
@@ -69,9 +72,11 @@ pub struct MmapRingStats {
 impl MmapRingStats {
     pub fn new() -> Self {
         Self {
-            writes: AtomicU64::new(0), reads: AtomicU64::new(0),
+            writes: AtomicU64::new(0),
+            reads: AtomicU64::new(0),
             bytes_transferred: AtomicU64::new(0),
-            full_events: AtomicU64::new(0), empty_events: AtomicU64::new(0),
+            full_events: AtomicU64::new(0),
+            empty_events: AtomicU64::new(0),
             batch_processes: AtomicU64::new(0),
         }
     }
@@ -83,7 +88,8 @@ impl MmapRingBuffer {
         let cap = capacity.next_power_of_two();
         Self {
             buffer: vec![0u8; cap * slot_size],
-            capacity: cap, slot_size,
+            capacity: cap,
+            slot_size,
             write_idx: PaddedAtomicUsize::new(0),
             read_idx: PaddedAtomicUsize::new(0),
             stats: MmapRingStats::new(),
@@ -91,7 +97,9 @@ impl MmapRingBuffer {
     }
 
     /// Total capacity in slots.
-    pub fn capacity(&self) -> usize { self.capacity }
+    pub fn capacity(&self) -> usize {
+        self.capacity
+    }
 
     /// Available slots for writing.
     pub fn available(&self) -> usize {
@@ -129,7 +137,9 @@ impl MmapRingBuffer {
         // Release semantics: ensure data is visible before advancing index
         self.write_idx.store(w.wrapping_add(1), Ordering::Release);
         self.stats.writes.fetch_add(1, Ordering::Relaxed);
-        self.stats.bytes_transferred.fetch_add(len as u64, Ordering::Relaxed);
+        self.stats
+            .bytes_transferred
+            .fetch_add(len as u64, Ordering::Relaxed);
         true
     }
 
@@ -186,27 +196,39 @@ pub fn ffi_comparison_table() -> Vec<FfiBridgeComparison> {
     vec![
         FfiBridgeComparison {
             method: "JSON over HTTP (localhost)",
-            call_overhead_ns: 50_000.0, serialization_cost_ns: 25_000.0,
-            memory_copies: 4, cache_pollution_bytes: 32768,
-            supports_zero_copy: false, complexity: "Low",
+            call_overhead_ns: 50_000.0,
+            serialization_cost_ns: 25_000.0,
+            memory_copies: 4,
+            cache_pollution_bytes: 32768,
+            supports_zero_copy: false,
+            complexity: "Low",
         },
         FfiBridgeComparison {
             method: "N-API / napi-rs (FFI)",
-            call_overhead_ns: 500.0, serialization_cost_ns: 2_000.0,
-            memory_copies: 2, cache_pollution_bytes: 4096,
-            supports_zero_copy: false, complexity: "Medium",
+            call_overhead_ns: 500.0,
+            serialization_cost_ns: 2_000.0,
+            memory_copies: 2,
+            cache_pollution_bytes: 4096,
+            supports_zero_copy: false,
+            complexity: "Medium",
         },
         FfiBridgeComparison {
             method: "Unix Domain Socket",
-            call_overhead_ns: 5_000.0, serialization_cost_ns: 3_000.0,
-            memory_copies: 3, cache_pollution_bytes: 8192,
-            supports_zero_copy: false, complexity: "Low",
+            call_overhead_ns: 5_000.0,
+            serialization_cost_ns: 3_000.0,
+            memory_copies: 3,
+            cache_pollution_bytes: 8192,
+            supports_zero_copy: false,
+            complexity: "Low",
         },
         FfiBridgeComparison {
             method: "Shared Memory (mmap + SPSC)",
-            call_overhead_ns: 102.0, serialization_cost_ns: 0.0,
-            memory_copies: 0, cache_pollution_bytes: 64,
-            supports_zero_copy: true, complexity: "High",
+            call_overhead_ns: 102.0,
+            serialization_cost_ns: 0.0,
+            memory_copies: 0,
+            cache_pollution_bytes: 64,
+            supports_zero_copy: true,
+            complexity: "High",
         },
     ]
 }
@@ -266,30 +288,68 @@ pub struct BatchResult {
 pub fn print_mmap_report(stats: &MmapRingStats) {
     use console::style;
     println!();
-    println!("  {} {}", style("mmap Ring Buffer Report").cyan().bold(),
-        style("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━").dim());
-    println!("  {} Writes:         {}", style("▸").dim(), stats.writes.load(Ordering::Relaxed));
-    println!("  {} Reads:          {}", style("▸").dim(), stats.reads.load(Ordering::Relaxed));
-    println!("  {} Bytes moved:    {} ({:.1} MB)", style("▸").dim(),
+    println!(
+        "  {} {}",
+        style("mmap Ring Buffer Report").cyan().bold(),
+        style("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━").dim()
+    );
+    println!(
+        "  {} Writes:         {}",
+        style("▸").dim(),
+        stats.writes.load(Ordering::Relaxed)
+    );
+    println!(
+        "  {} Reads:          {}",
+        style("▸").dim(),
+        stats.reads.load(Ordering::Relaxed)
+    );
+    println!(
+        "  {} Bytes moved:    {} ({:.1} MB)",
+        style("▸").dim(),
         stats.bytes_transferred.load(Ordering::Relaxed),
-        stats.bytes_transferred.load(Ordering::Relaxed) as f64 / 1e6);
-    println!("  {} Buffer full:    {}", style("▸").dim(), stats.full_events.load(Ordering::Relaxed));
-    println!("  {} Buffer empty:   {}", style("▸").dim(), stats.empty_events.load(Ordering::Relaxed));
-    println!("  {} Batch processes: {}", style("▸").dim(), stats.batch_processes.load(Ordering::Relaxed));
+        stats.bytes_transferred.load(Ordering::Relaxed) as f64 / 1e6
+    );
+    println!(
+        "  {} Buffer full:    {}",
+        style("▸").dim(),
+        stats.full_events.load(Ordering::Relaxed)
+    );
+    println!(
+        "  {} Buffer empty:   {}",
+        style("▸").dim(),
+        stats.empty_events.load(Ordering::Relaxed)
+    );
+    println!(
+        "  {} Batch processes: {}",
+        style("▸").dim(),
+        stats.batch_processes.load(Ordering::Relaxed)
+    );
     println!();
 }
 
 pub fn print_ffi_comparison() {
     use console::style;
     println!();
-    println!("  {} {}", style("Node.js → Rust IPC Comparison").cyan().bold(),
-        style("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━").dim());
+    println!(
+        "  {} {}",
+        style("Node.js → Rust IPC Comparison").cyan().bold(),
+        style("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━").dim()
+    );
     for entry in ffi_comparison_table() {
-        let zc = if entry.supports_zero_copy { style("✓").green() } else { style("✗").red() };
-        println!("  {} {} | {}ns call + {}ns serde | {} copies | ZC: {}",
-            style("▸").dim(), style(entry.method).yellow(),
-            entry.call_overhead_ns, entry.serialization_cost_ns,
-            entry.memory_copies, zc);
+        let zc = if entry.supports_zero_copy {
+            style("✓").green()
+        } else {
+            style("✗").red()
+        };
+        println!(
+            "  {} {} | {}ns call + {}ns serde | {} copies | ZC: {}",
+            style("▸").dim(),
+            style(entry.method).yellow(),
+            entry.call_overhead_ns,
+            entry.serialization_cost_ns,
+            entry.memory_copies,
+            zc
+        );
     }
     println!();
 }
@@ -317,7 +377,9 @@ mod tests {
     #[test]
     fn test_ring_full() {
         let ring = MmapRingBuffer::new(4, 16);
-        for _ in 0..4 { assert!(ring.write(&[0u8; 16])); }
+        for _ in 0..4 {
+            assert!(ring.write(&[0u8; 16]));
+        }
         assert!(!ring.write(&[0u8; 16])); // Full
     }
 
@@ -330,7 +392,9 @@ mod tests {
     #[test]
     fn test_batch_read() {
         let ring = MmapRingBuffer::new(16, 32);
-        for i in 0..8 { ring.write(&vec![i as u8; 32]); }
+        for i in 0..8 {
+            ring.write(&vec![i as u8; 32]);
+        }
         let batch = ring.read_batch(4);
         assert_eq!(batch.len(), 4);
     }
@@ -354,8 +418,12 @@ mod tests {
     #[test]
     fn test_ring_wraparound() {
         let ring = MmapRingBuffer::new(4, 8);
-        for i in 0..4 { ring.write(&[i as u8; 8]); }
-        for _ in 0..4 { ring.read(); }
+        for i in 0..4 {
+            ring.write(&[i as u8; 8]);
+        }
+        for _ in 0..4 {
+            ring.read();
+        }
         // After full cycle, should be able to write again
         assert!(ring.write(&[42u8; 8]));
         let data = ring.read().unwrap();

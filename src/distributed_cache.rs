@@ -40,7 +40,7 @@ impl Default for DistributedCacheConfig {
             enabled: false,
             endpoints: Vec::new(),
             local_cache_dir: cache_dir,
-            ttl_seconds: 86400, // 24 hours
+            ttl_seconds: 86400,                // 24 hours
             max_cache_size: 100 * 1024 * 1024, // 100MB
             fallback_to_local: true,
             timeout_ms: 5000,
@@ -106,7 +106,9 @@ pub struct CacheStats {
 impl CacheStats {
     pub fn hit_rate(&self) -> f64 {
         let total = self.local_hits + self.local_misses + self.remote_hits + self.remote_misses;
-        if total == 0 { return 0.0; }
+        if total == 0 {
+            return 0.0;
+        }
         (self.local_hits + self.remote_hits) as f64 / total as f64 * 100.0
     }
 }
@@ -116,8 +118,12 @@ impl DistributedCache {
     pub fn new(config: DistributedCacheConfig) -> Result<Self> {
         // Ensure local cache directory exists
         if !config.local_cache_dir.exists() {
-            fs::create_dir_all(&config.local_cache_dir)
-                .with_context(|| format!("Failed to create cache dir: {}", config.local_cache_dir.display()))?;
+            fs::create_dir_all(&config.local_cache_dir).with_context(|| {
+                format!(
+                    "Failed to create cache dir: {}",
+                    config.local_cache_dir.display()
+                )
+            })?;
         }
 
         let local_entries = Self::load_local_entries(&config.local_cache_dir)?;
@@ -190,7 +196,8 @@ impl DistributedCache {
 
     /// Invalidate all entries for a package.
     pub fn invalidate_package(&mut self, package_name: &str) -> Result<u64> {
-        let keys_to_remove: Vec<String> = self.local_entries
+        let keys_to_remove: Vec<String> = self
+            .local_entries
             .iter()
             .filter(|(_, entry)| entry.data.package_name == package_name)
             .map(|(key, _)| key.clone())
@@ -214,7 +221,8 @@ impl DistributedCache {
             .unwrap_or_default()
             .as_secs();
 
-        let keys_to_remove: Vec<String> = self.local_entries
+        let keys_to_remove: Vec<String> = self
+            .local_entries
             .iter()
             .filter(|(_, entry)| entry.expires_at <= now)
             .map(|(key, _)| key.clone())
@@ -285,8 +293,8 @@ impl DistributedCache {
         if cache_file.exists() {
             let content = fs::read_to_string(&cache_file)
                 .with_context(|| format!("Failed to read cache: {}", cache_file.display()))?;
-            let entries: HashMap<String, DistributedCacheEntry> = serde_json::from_str(&content)
-                .unwrap_or_default();
+            let entries: HashMap<String, DistributedCacheEntry> =
+                serde_json::from_str(&content).unwrap_or_default();
             Ok(entries)
         } else {
             Ok(HashMap::new())
@@ -295,8 +303,8 @@ impl DistributedCache {
 
     fn save_local_entries(&self) -> Result<()> {
         let cache_file = Self::local_cache_file(&self.config.local_cache_dir);
-        let content = serde_json::to_string(&self.local_entries)
-            .context("Failed to serialize cache")?;
+        let content =
+            serde_json::to_string(&self.local_entries).context("Failed to serialize cache")?;
         fs::write(&cache_file, content)
             .with_context(|| format!("Failed to write cache: {}", cache_file.display()))?;
         Ok(())
@@ -399,7 +407,8 @@ mod tests {
             let data = CachedScanData {
                 package_name: format!("pkg-{}", i),
                 package_version: "1.0.0".to_string(),
-                candidate_count: 1, candidate_size: 100,
+                candidate_count: 1,
+                candidate_size: 100,
                 category_breakdown: HashMap::new(),
                 package_hash: i as u64,
             };
@@ -425,7 +434,8 @@ mod tests {
         let data = CachedScanData {
             package_name: "hit".to_string(),
             package_version: "1.0.0".to_string(),
-            candidate_count: 1, candidate_size: 100,
+            candidate_count: 1,
+            candidate_size: 100,
             category_breakdown: HashMap::new(),
             package_hash: 0,
         };
@@ -437,10 +447,8 @@ mod tests {
 
     #[test]
     fn test_cache_key_generation() {
-        let key = DistributedCache::cache_key(
-            Path::new("/project/node_modules/lodash"),
-            0xDEADBEEF,
-        );
+        let key =
+            DistributedCache::cache_key(Path::new("/project/node_modules/lodash"), 0xDEADBEEF);
         assert!(key.contains("lodash"));
         assert!(key.contains("deadbeef"));
     }

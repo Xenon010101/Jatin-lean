@@ -12,7 +12,7 @@ pub enum Optimization {
     NetworkTuning,
     KernelParam(String, String),
     IoScheduler(String, String), // device, scheduler
-    ReadAhead(String, usize),     // device, KB
+    ReadAhead(String, usize),    // device, KB
 }
 
 impl Optimization {
@@ -61,12 +61,10 @@ impl Optimization {
             Optimization::KernelParam(key, _) => {
                 crate::system_apply::sysctl_get(key).unwrap_or_else(|_| "unknown".to_string())
             }
-            Optimization::IoScheduler(device, _) => {
-                crate::system_apply::read_io_schedulers()
-                    .ok()
-                    .and_then(|s| s.get(device).cloned())
-                    .unwrap_or_else(|| "unknown".to_string())
-            }
+            Optimization::IoScheduler(device, _) => crate::system_apply::read_io_schedulers()
+                .ok()
+                .and_then(|s| s.get(device).cloned())
+                .unwrap_or_else(|| "unknown".to_string()),
             Optimization::ReadAhead(_, _) => "default".to_string(),
         }
     }
@@ -107,7 +105,9 @@ impl Optimization {
                 // Check if THP is supported
                 let path = std::path::Path::new("/sys/kernel/mm/transparent_hugepage/enabled");
                 if !path.exists() {
-                    return Err(anyhow!("Transparent huge pages not supported on this system"));
+                    return Err(anyhow!(
+                        "Transparent huge pages not supported on this system"
+                    ));
                 }
                 Ok(())
             }
@@ -157,24 +157,16 @@ impl Optimization {
     /// Apply optimization
     pub fn apply(&self) -> Result<()> {
         match self {
-            Optimization::CpuGovernor(gov) => {
-                crate::system_apply::apply_cpu_governor(gov)
-            }
+            Optimization::CpuGovernor(gov) => crate::system_apply::apply_cpu_governor(gov),
             Optimization::TransparentHugePages(enable) => {
                 crate::system_apply::set_transparent_hugepages(*enable)
             }
-            Optimization::NetworkTuning => {
-                crate::system_apply::apply_optimized_network_tuning()
-            }
-            Optimization::KernelParam(key, value) => {
-                crate::system_apply::sysctl_set(key, value)
-            }
+            Optimization::NetworkTuning => crate::system_apply::apply_optimized_network_tuning(),
+            Optimization::KernelParam(key, value) => crate::system_apply::sysctl_set(key, value),
             Optimization::IoScheduler(device, scheduler) => {
                 crate::system_apply::set_io_scheduler(device, scheduler)
             }
-            Optimization::ReadAhead(device, kb) => {
-                crate::system_apply::set_readahead(device, *kb)
-            }
+            Optimization::ReadAhead(device, kb) => crate::system_apply::set_readahead(device, *kb),
         }
     }
 }

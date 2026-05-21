@@ -42,8 +42,12 @@ impl PipelineStage {
 
     pub fn all() -> &'static [PipelineStage] {
         &[
-            Self::Ingestion, Self::Deserialization, Self::Deduplication,
-            Self::CrossBoundaryIpc, Self::AdaptiveExecution, Self::ResponseCache,
+            Self::Ingestion,
+            Self::Deserialization,
+            Self::Deduplication,
+            Self::CrossBoundaryIpc,
+            Self::AdaptiveExecution,
+            Self::ResponseCache,
         ]
     }
 
@@ -94,13 +98,17 @@ impl StageMetrics {
 
     pub fn avg_latency_ns(&self) -> f64 {
         let inv = self.invocations.load(Ordering::Relaxed);
-        if inv == 0 { return 0.0; }
+        if inv == 0 {
+            return 0.0;
+        }
         self.total_ns.load(Ordering::Relaxed) as f64 / inv as f64
     }
 
     pub fn throughput_gbps(&self, wall_time: Duration) -> f64 {
         let secs = wall_time.as_secs_f64();
-        if secs < 0.001 { return 0.0; }
+        if secs < 0.001 {
+            return 0.0;
+        }
         let bytes = self.bytes_processed.load(Ordering::Relaxed) as f64;
         (bytes * 8.0) / (secs * 1e9)
     }
@@ -122,7 +130,10 @@ pub struct PipelineRequest {
 impl PipelineRequest {
     pub fn new(id: u64, payload: Vec<u8>, resource_key: String, client_id: String) -> Self {
         Self {
-            id, payload, resource_key, client_id,
+            id,
+            payload,
+            resource_key,
+            client_id,
             created_at: Instant::now(),
             stage_timings: Vec::with_capacity(6),
         }
@@ -181,7 +192,8 @@ impl GatewayStats {
 
 impl UnifiedGateway {
     pub fn new() -> Self {
-        let metrics = PipelineStage::all().iter()
+        let metrics = PipelineStage::all()
+            .iter()
             .map(|s| StageMetrics::new(*s))
             .collect();
         Self {
@@ -193,8 +205,12 @@ impl UnifiedGateway {
 
     /// Process a request through the full 6-stage pipeline.
     pub fn process(&self, mut req: PipelineRequest) -> PipelineResponse {
-        self.pipeline_stats.requests_processed.fetch_add(1, Ordering::Relaxed);
-        self.pipeline_stats.total_bytes_in.fetch_add(req.payload.len() as u64, Ordering::Relaxed);
+        self.pipeline_stats
+            .requests_processed
+            .fetch_add(1, Ordering::Relaxed);
+        self.pipeline_stats
+            .total_bytes_in
+            .fetch_add(req.payload.len() as u64, Ordering::Relaxed);
         let payload_len = req.payload.len() as u64;
 
         // Stage 1: Ingestion (XDP packet validation)
@@ -218,7 +234,9 @@ impl UnifiedGateway {
         self.metrics[2].record(s3_dur.as_nanos() as u64, 0);
         req.record_stage(PipelineStage::Deduplication, s3_dur);
         if coalesced {
-            self.pipeline_stats.requests_coalesced.fetch_add(1, Ordering::Relaxed);
+            self.pipeline_stats
+                .requests_coalesced
+                .fetch_add(1, Ordering::Relaxed);
         }
 
         // Stage 4: IPC transfer
@@ -242,7 +260,9 @@ impl UnifiedGateway {
         self.metrics[5].record(s6_dur.as_nanos() as u64, response_payload.len() as u64);
         req.record_stage(PipelineStage::ResponseCache, s6_dur);
 
-        self.pipeline_stats.total_bytes_out.fetch_add(response_payload.len() as u64, Ordering::Relaxed);
+        self.pipeline_stats
+            .total_bytes_out
+            .fetch_add(response_payload.len() as u64, Ordering::Relaxed);
 
         PipelineResponse {
             request_id: req.id,
@@ -310,9 +330,11 @@ impl UnifiedGateway {
             elapsed,
             rps: request_count as f64 / elapsed.as_secs_f64(),
             avg_latency_ns: elapsed.as_nanos() as f64 / request_count as f64,
-            stage_latencies: self.metrics.iter().map(|m| {
-                (m.stage, m.avg_latency_ns())
-            }).collect(),
+            stage_latencies: self
+                .metrics
+                .iter()
+                .map(|m| (m.stage, m.avg_latency_ns()))
+                .collect(),
         }
     }
 }
@@ -332,28 +354,44 @@ pub fn print_gateway_report(gw: &UnifiedGateway) {
     use console::style;
     let wall = gw.started_at.elapsed();
     println!();
-    println!("  {} {}", style("Unified Gateway Pipeline").cyan().bold(),
-        style("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━").dim());
+    println!(
+        "  {} {}",
+        style("Unified Gateway Pipeline").cyan().bold(),
+        style("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━").dim()
+    );
 
     for m in &gw.metrics {
         let inv = m.invocations.load(Ordering::Relaxed);
         if inv > 0 {
-            println!("  {} {} | {:.0} ns avg | {} invocations | {:.2} Gbps",
-                m.stage.icon(), style(m.stage.label()).yellow(),
-                m.avg_latency_ns(), inv, m.throughput_gbps(wall));
+            println!(
+                "  {} {} | {:.0} ns avg | {} invocations | {:.2} Gbps",
+                m.stage.icon(),
+                style(m.stage.label()).yellow(),
+                m.avg_latency_ns(),
+                inv,
+                m.throughput_gbps(wall)
+            );
         }
     }
 
     let stats = &gw.pipeline_stats;
     println!();
-    println!("  {} Processed:  {} requests",
-        style("▸").dim(), stats.requests_processed.load(Ordering::Relaxed));
-    println!("  {} Coalesced:  {} requests",
-        style("▸").dim(), stats.requests_coalesced.load(Ordering::Relaxed));
-    println!("  {} Bytes in:   {} | Bytes out: {}",
+    println!(
+        "  {} Processed:  {} requests",
+        style("▸").dim(),
+        stats.requests_processed.load(Ordering::Relaxed)
+    );
+    println!(
+        "  {} Coalesced:  {} requests",
+        style("▸").dim(),
+        stats.requests_coalesced.load(Ordering::Relaxed)
+    );
+    println!(
+        "  {} Bytes in:   {} | Bytes out: {}",
         style("▸").dim(),
         stats.total_bytes_in.load(Ordering::Relaxed),
-        stats.total_bytes_out.load(Ordering::Relaxed));
+        stats.total_bytes_out.load(Ordering::Relaxed)
+    );
     println!();
 }
 
@@ -369,7 +407,7 @@ mod tests {
     #[test]
     fn test_gateway_process() {
         let gw = UnifiedGateway::new();
-        let req = PipelineRequest::new(1, vec![1,2,3], "/test".into(), "c1".into());
+        let req = PipelineRequest::new(1, vec![1, 2, 3], "/test".into(), "c1".into());
         let resp = gw.process(req);
         assert_eq!(resp.request_id, 1);
         assert!(!resp.payload.is_empty());

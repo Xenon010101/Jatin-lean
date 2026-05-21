@@ -59,14 +59,16 @@ impl NumaTopology {
         Self {
             nodes: vec![
                 NumaNode {
-                    id: 0, cpu_list: (0..32).collect(),
+                    id: 0,
+                    cpu_list: (0..32).collect(),
                     memory_total_mb: 128 * 1024,
                     memory_free_mb: 100 * 1024,
                     distance_to_self: 10,
                     distances: vec![10, 21],
                 },
                 NumaNode {
-                    id: 1, cpu_list: (32..64).collect(),
+                    id: 1,
+                    cpu_list: (32..64).collect(),
                     memory_total_mb: 128 * 1024,
                     memory_free_mb: 100 * 1024,
                     distance_to_self: 10,
@@ -120,7 +122,7 @@ impl Default for NetworkTuning {
             so_reuseport: true,
             tcp_fastopen: true,
             tcp_window_scaling: true,
-            recv_buffer_size: 4 * 1024 * 1024,  // 4MB
+            recv_buffer_size: 4 * 1024 * 1024, // 4MB
             send_buffer_size: 4 * 1024 * 1024,
             tcp_rmem: (4096, 87380, 16 * 1024 * 1024),
             tcp_wmem: (4096, 65536, 16 * 1024 * 1024),
@@ -139,19 +141,47 @@ impl NetworkTuning {
     /// Generate sysctl commands to apply these settings.
     pub fn to_sysctl_commands(&self) -> Vec<String> {
         vec![
-            format!("sysctl -w net.ipv4.tcp_fastopen={}", if self.tcp_fastopen { 3 } else { 0 }),
-            format!("sysctl -w net.ipv4.tcp_window_scaling={}", if self.tcp_window_scaling { 1 } else { 0 }),
-            format!("sysctl -w net.ipv4.tcp_rmem=\"{} {} {}\"",
-                self.tcp_rmem.0, self.tcp_rmem.1, self.tcp_rmem.2),
-            format!("sysctl -w net.ipv4.tcp_wmem=\"{} {} {}\"",
-                self.tcp_wmem.0, self.tcp_wmem.1, self.tcp_wmem.2),
+            format!(
+                "sysctl -w net.ipv4.tcp_fastopen={}",
+                if self.tcp_fastopen { 3 } else { 0 }
+            ),
+            format!(
+                "sysctl -w net.ipv4.tcp_window_scaling={}",
+                if self.tcp_window_scaling { 1 } else { 0 }
+            ),
+            format!(
+                "sysctl -w net.ipv4.tcp_rmem=\"{} {} {}\"",
+                self.tcp_rmem.0, self.tcp_rmem.1, self.tcp_rmem.2
+            ),
+            format!(
+                "sysctl -w net.ipv4.tcp_wmem=\"{} {} {}\"",
+                self.tcp_wmem.0, self.tcp_wmem.1, self.tcp_wmem.2
+            ),
             format!("sysctl -w net.core.somaxconn={}", self.somaxconn),
-            format!("sysctl -w net.ipv4.tcp_max_syn_backlog={}", self.tcp_max_syn_backlog),
-            format!("sysctl -w net.ipv4.tcp_tw_reuse={}", if self.tcp_tw_reuse { 1 } else { 0 }),
-            format!("sysctl -w net.ipv4.tcp_fin_timeout={}", self.tcp_fin_timeout),
-            format!("sysctl -w net.ipv4.tcp_keepalive_time={}", self.tcp_keepalive_time),
-            format!("sysctl -w net.ipv4.tcp_keepalive_intvl={}", self.tcp_keepalive_intvl),
-            format!("sysctl -w net.ipv4.tcp_keepalive_probes={}", self.tcp_keepalive_probes),
+            format!(
+                "sysctl -w net.ipv4.tcp_max_syn_backlog={}",
+                self.tcp_max_syn_backlog
+            ),
+            format!(
+                "sysctl -w net.ipv4.tcp_tw_reuse={}",
+                if self.tcp_tw_reuse { 1 } else { 0 }
+            ),
+            format!(
+                "sysctl -w net.ipv4.tcp_fin_timeout={}",
+                self.tcp_fin_timeout
+            ),
+            format!(
+                "sysctl -w net.ipv4.tcp_keepalive_time={}",
+                self.tcp_keepalive_time
+            ),
+            format!(
+                "sysctl -w net.ipv4.tcp_keepalive_intvl={}",
+                self.tcp_keepalive_intvl
+            ),
+            format!(
+                "sysctl -w net.ipv4.tcp_keepalive_probes={}",
+                self.tcp_keepalive_probes
+            ),
         ]
     }
 }
@@ -212,11 +242,20 @@ impl KernelTuning {
     pub fn to_sysctl_commands(&self) -> Vec<String> {
         vec![
             format!("sysctl -w fs.file-max={}", self.fs_file_max),
-            format!("sysctl -w fs.inotify.max_user_watches={}", self.fs_inotify_max_user_watches),
+            format!(
+                "sysctl -w fs.inotify.max_user_watches={}",
+                self.fs_inotify_max_user_watches
+            ),
             format!("sysctl -w vm.dirty_ratio={}", self.vm_dirty_ratio),
-            format!("sysctl -w vm.dirty_background_ratio={}", self.vm_dirty_background_ratio),
+            format!(
+                "sysctl -w vm.dirty_background_ratio={}",
+                self.vm_dirty_background_ratio
+            ),
             format!("sysctl -w vm.swappiness={}", self.vm_swappiness),
-            format!("sysctl -w vm.vfs_cache_pressure={}", self.vfs_cache_pressure),
+            format!(
+                "sysctl -w vm.vfs_cache_pressure={}",
+                self.vfs_cache_pressure
+            ),
         ]
     }
 }
@@ -322,23 +361,30 @@ pub fn assess_system() -> SystemAssessment {
                     bottlenecks.push(Bottleneck {
                         component: "File Descriptors",
                         severity: Priority::High,
-                        description: format!("fs.file-max = {} (too low for large node_modules)", n),
+                        description: format!(
+                            "fs.file-max = {} (too low for large node_modules)",
+                            n
+                        ),
                         impact: "Scan failures on projects with >10K files",
                     });
                     recs.push(Recommendation {
-                        category: "Kernel", priority: Priority::High,
+                        category: "Kernel",
+                        priority: Priority::High,
                         description: "Increase file descriptor limit".into(),
                         command: Some("sysctl -w fs.file-max=10000000".into()),
                         expected_improvement: "Eliminates EMFILE errors",
                     });
-                } else { score += 5; }
+                } else {
+                    score += 5;
+                }
             }
         }
     }
 
     // CPU governor check
     recs.push(Recommendation {
-        category: "CPU", priority: Priority::Medium,
+        category: "CPU",
+        priority: Priority::Medium,
         description: "Set CPU governor to 'performance' during scanning".into(),
         command: Some("cpupower frequency-set -g performance".into()),
         expected_improvement: "10-30% faster scans (no frequency ramp delay)",
@@ -348,7 +394,8 @@ pub fn assess_system() -> SystemAssessment {
     let topo = NumaTopology::detect();
     if topo.is_numa {
         recs.push(Recommendation {
-            category: "NUMA", priority: Priority::High,
+            category: "NUMA",
+            priority: Priority::High,
             description: "Bind scanning process to local NUMA node".into(),
             command: Some("numactl --localalloc jatin-lean".into()),
             expected_improvement: "20-40% less memory access latency",
@@ -357,7 +404,8 @@ pub fn assess_system() -> SystemAssessment {
 
     // Network tuning
     recs.push(Recommendation {
-        category: "Network", priority: Priority::Medium,
+        category: "Network",
+        priority: Priority::Medium,
         description: "Enable TCP_FASTOPEN for npm registry connections".into(),
         command: Some("sysctl -w net.ipv4.tcp_fastopen=3".into()),
         expected_improvement: "1 RTT savings on npm audit connections",
@@ -365,7 +413,8 @@ pub fn assess_system() -> SystemAssessment {
 
     // THP recommendation
     recs.push(Recommendation {
-        category: "Memory", priority: Priority::Low,
+        category: "Memory",
+        priority: Priority::Low,
         description: "Enable transparent huge pages for large scans".into(),
         command: Some("echo always > /sys/kernel/mm/transparent_hugepage/enabled".into()),
         expected_improvement: "Reduced TLB misses for >100MB working sets",
@@ -373,7 +422,8 @@ pub fn assess_system() -> SystemAssessment {
 
     // I/O scheduler
     recs.push(Recommendation {
-        category: "I/O", priority: Priority::Medium,
+        category: "I/O",
+        priority: Priority::Medium,
         description: "Use 'none' (noop) I/O scheduler for NVMe SSDs".into(),
         command: Some("echo none > /sys/block/nvme0n1/queue/scheduler".into()),
         expected_improvement: "Lower I/O latency (skip unnecessary reordering)",
@@ -381,36 +431,54 @@ pub fn assess_system() -> SystemAssessment {
 
     let optimized_score = (score + recs.len() as u32 * 5).min(100);
 
-    SystemAssessment { recommendations: recs, bottlenecks, current_score: score, optimized_score }
+    SystemAssessment {
+        recommendations: recs,
+        bottlenecks,
+        current_score: score,
+        optimized_score,
+    }
 }
 
 /// Print system tuning report.
 pub fn print_system_report(assessment: &SystemAssessment) {
     use console::style;
     println!();
-    println!("  {} {}", style("System Hardware Optimization").cyan().bold(),
-        style("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━").dim());
-    println!("  {} Score: {}/100 → {}/100 (with optimizations)",
+    println!(
+        "  {} {}",
+        style("System Hardware Optimization").cyan().bold(),
+        style("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━").dim()
+    );
+    println!(
+        "  {} Score: {}/100 → {}/100 (with optimizations)",
         style("📊").yellow(),
         style(assessment.current_score).red().bold(),
-        style(assessment.optimized_score).green().bold());
+        style(assessment.optimized_score).green().bold()
+    );
 
     if !assessment.bottlenecks.is_empty() {
         println!();
         println!("  {} Bottlenecks detected:", style("⚠").red());
         for b in &assessment.bottlenecks {
-            println!("    {} [{}] {} — {}",
-                b.severity.icon(), style(b.component).yellow(),
-                b.description, style(b.impact).dim());
+            println!(
+                "    {} [{}] {} — {}",
+                b.severity.icon(),
+                style(b.component).yellow(),
+                b.description,
+                style(b.impact).dim()
+            );
         }
     }
 
     println!();
     println!("  {} Recommendations:", style("💡").yellow());
     for r in &assessment.recommendations {
-        println!("    {} [{}] {} — {}",
-            r.priority.icon(), style(r.category).cyan(),
-            r.description, style(r.expected_improvement).dim());
+        println!(
+            "    {} [{}] {} — {}",
+            r.priority.icon(),
+            style(r.category).cyan(),
+            r.description,
+            style(r.expected_improvement).dim()
+        );
         if let Some(ref cmd) = r.command {
             println!("      {} {}", style("$").dim(), style(cmd).yellow());
         }

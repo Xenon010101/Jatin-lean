@@ -48,7 +48,9 @@ impl ArenaStats {
     }
 
     pub fn utilization(&self, capacity: usize) -> f64 {
-        if capacity == 0 { return 0.0; }
+        if capacity == 0 {
+            return 0.0;
+        }
         self.bytes_allocated.load(Ordering::Relaxed) as f64 / capacity as f64 * 100.0
     }
 }
@@ -83,14 +85,21 @@ impl Arena {
                 return None; // Out of memory
             }
 
-            if self.offset.compare_exchange_weak(
-                current, new_offset, Ordering::AcqRel, Ordering::Relaxed
-            ).is_ok() {
+            if self
+                .offset
+                .compare_exchange_weak(current, new_offset, Ordering::AcqRel, Ordering::Relaxed)
+                .is_ok()
+            {
                 let waste = aligned - current;
                 self.stats.allocations.fetch_add(1, Ordering::Relaxed);
-                self.stats.bytes_allocated.fetch_add(size, Ordering::Relaxed);
+                self.stats
+                    .bytes_allocated
+                    .fetch_add(size, Ordering::Relaxed);
                 self.stats.bytes_wasted.fetch_add(waste, Ordering::Relaxed);
-                let _ = self.stats.peak_usage.fetch_max(new_offset, Ordering::Relaxed);
+                let _ = self
+                    .stats
+                    .peak_usage
+                    .fetch_max(new_offset, Ordering::Relaxed);
 
                 // Safety: we own exclusive access to [aligned..new_offset]
                 let ptr = self.memory.as_ptr().wrapping_add(aligned) as *mut u8;
@@ -153,13 +162,19 @@ impl<T: Copy + Default> TypedPool<T> {
         for _ in 0..capacity {
             slots.push(UnsafeCell::new(T::default()));
         }
-        Self { slots, next: AtomicUsize::new(0), capacity }
+        Self {
+            slots,
+            next: AtomicUsize::new(0),
+            capacity,
+        }
     }
 
     /// Allocate a slot, returning a mutable reference.
     pub fn alloc(&self) -> Option<&mut T> {
         let idx = self.next.fetch_add(1, Ordering::AcqRel);
-        if idx >= self.capacity { return None; }
+        if idx >= self.capacity {
+            return None;
+        }
         Some(unsafe { &mut *self.slots[idx].get() })
     }
 
@@ -191,7 +206,7 @@ unsafe impl<T: Copy + Default> Send for TypedPool<T> {}
 /// A promotable arena that supports "promoting" objects to the global heap.
 /// Inspired by Section 4.1: Hybrid Arena-GC Memory Model.
 /// Objects are allocated in the arena by default (O(1) bump-pointer).
-/// If an object escapes the request scope, it can be "promoted" to a 
+/// If an object escapes the request scope, it can be "promoted" to a
 /// long-lived collection to avoid destruction when the arena is reset.
 pub struct PromotableArena<T: Clone + Default> {
     arena: Arena,
@@ -212,7 +227,9 @@ impl<T: Clone + Default> PromotableArena<T> {
 
     /// Allocate a new object in the arena.
     pub fn alloc(&self, value: T) -> Option<&mut T> {
-        let bytes = self.arena.alloc(self.element_size, std::mem::align_of::<T>())?;
+        let bytes = self
+            .arena
+            .alloc(self.element_size, std::mem::align_of::<T>())?;
         let ptr = bytes.as_mut_ptr() as *mut T;
         unsafe {
             std::ptr::write(ptr, value);
@@ -267,8 +284,12 @@ pub struct ScanEntry {
 impl Default for ScanEntry {
     fn default() -> Self {
         Self {
-            path_hash: 0, size: 0, is_candidate: false,
-            category: 0, depth: 0, _pad: [0; 5],
+            path_hash: 0,
+            size: 0,
+            is_candidate: false,
+            category: 0,
+            depth: 0,
+            _pad: [0; 5],
         }
     }
 }
@@ -287,7 +308,10 @@ impl ScanEntry {
     pub fn new(path: &str, size: u64, is_candidate: bool, category: u8, depth: u16) -> Self {
         Self {
             path_hash: Self::hash_path(path),
-            size, is_candidate, category, depth,
+            size,
+            is_candidate,
+            category,
+            depth,
             _pad: [0; 5],
         }
     }
@@ -297,18 +321,38 @@ impl ScanEntry {
 pub fn print_arena_report(arena: &Arena) {
     use console::style;
     println!();
-    println!("  {} {}", style("Arena Allocator Report").cyan().bold(),
-        style("━━━━━━━━━━━━━━━━━━━━━━━━━━━").dim());
-    println!("  {} Capacity:      {} bytes ({:.1} KB)",
-        style("▸").dim(), arena.capacity, arena.capacity as f64 / 1024.0);
-    println!("  {} Used:          {} bytes ({:.1}%)",
-        style("▸").dim(), arena.used(), arena.utilization());
-    println!("  {} Remaining:     {} bytes",
-        style("▸").dim(), arena.remaining());
-    println!("  {} Allocations:   {}",
-        style("▸").dim(), arena.stats.allocations.load(Ordering::Relaxed));
-    println!("  {} Wasted (pad):  {} bytes",
-        style("▸").dim(), arena.stats.bytes_wasted.load(Ordering::Relaxed));
+    println!(
+        "  {} {}",
+        style("Arena Allocator Report").cyan().bold(),
+        style("━━━━━━━━━━━━━━━━━━━━━━━━━━━").dim()
+    );
+    println!(
+        "  {} Capacity:      {} bytes ({:.1} KB)",
+        style("▸").dim(),
+        arena.capacity,
+        arena.capacity as f64 / 1024.0
+    );
+    println!(
+        "  {} Used:          {} bytes ({:.1}%)",
+        style("▸").dim(),
+        arena.used(),
+        arena.utilization()
+    );
+    println!(
+        "  {} Remaining:     {} bytes",
+        style("▸").dim(),
+        arena.remaining()
+    );
+    println!(
+        "  {} Allocations:   {}",
+        style("▸").dim(),
+        arena.stats.allocations.load(Ordering::Relaxed)
+    );
+    println!(
+        "  {} Wasted (pad):  {} bytes",
+        style("▸").dim(),
+        arena.stats.bytes_wasted.load(Ordering::Relaxed)
+    );
     println!();
 }
 
@@ -365,7 +409,9 @@ mod tests {
     #[test]
     fn test_typed_pool() {
         let pool = TypedPool::<ScanEntry>::new(100);
-        let entry = pool.alloc_init(ScanEntry::new("test.js", 1024, true, 1, 2)).unwrap();
+        let entry = pool
+            .alloc_init(ScanEntry::new("test.js", 1024, true, 1, 2))
+            .unwrap();
         assert_eq!(entry.size, 1024);
         assert!(entry.is_candidate);
         assert_eq!(pool.used(), 1);

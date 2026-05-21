@@ -5,8 +5,8 @@
 //! Run with: cargo run --example apply_optimizations
 //! (Requires root: sudo cargo run --example apply_optimizations)
 
-use jatin_lean::{system_apply, optimization, impact_measurement};
 use anyhow::Result;
+use jatin_lean::{impact_measurement, optimization, system_apply};
 
 fn main() -> Result<()> {
     println!("=== jatin-lean Actionable Optimizations Example ===\n");
@@ -72,7 +72,7 @@ fn example_individual_optimizations() -> Result<()> {
     println!("   Description: {}", opt.description());
     println!("   Current: {}", opt.current_value());
     println!("   New: {}", opt.new_value());
-    
+
     // Validate
     match opt.validate() {
         Ok(_) => println!("   ✓ Validation passed"),
@@ -97,10 +97,8 @@ fn example_individual_optimizations() -> Result<()> {
 
     // Kernel Parameter
     println!("\n4. Kernel Parameter");
-    let opt = optimization::Optimization::KernelParam(
-        "vm.swappiness".to_string(),
-        "10".to_string()
-    );
+    let opt =
+        optimization::Optimization::KernelParam("vm.swappiness".to_string(), "10".to_string());
     println!("   Description: {}", opt.description());
     println!("   Current: {}", opt.current_value());
     println!("   New: {}", opt.new_value());
@@ -125,7 +123,10 @@ fn example_profiles() -> Result<()> {
     let server_profile = optimization::OptimizationProfile::server();
     println!("Profile: {}", server_profile.name);
     println!("Description: {}", server_profile.description);
-    println!("Optimizations: {} items", server_profile.optimizations.len());
+    println!(
+        "Optimizations: {} items",
+        server_profile.optimizations.len()
+    );
 
     // Balanced profile
     println!();
@@ -143,7 +144,7 @@ fn example_measure_impact() -> Result<()> {
     println!("\n--- Example 4: Measure Impact ---\n");
 
     println!("Measuring impact of CPU governor change...");
-    
+
     // Measure impact (commented out to avoid actually changing system)
     /*
     let report = impact_measurement::measure_impact(
@@ -166,11 +167,14 @@ fn example_monitor() -> Result<()> {
 
     println!("Collecting current metrics...");
     let metrics = impact_measurement::Metrics::collect()?;
-    
+
     println!("Current System Metrics:");
     println!("  CPU Frequency: {:.0} MHz", metrics.cpu_freq_mhz);
     println!("  CPU Usage: {:.1}%", metrics.cpu_usage_pct);
-    println!("  Context Switches: {}/sec", metrics.context_switches_per_sec);
+    println!(
+        "  Context Switches: {}/sec",
+        metrics.context_switches_per_sec
+    );
     println!("  Cache Miss Rate: {:.1}%", metrics.cache_miss_rate_pct);
     println!("  I/O Throughput: {:.1} MB/s", metrics.io_throughput_mbps);
     println!("  Network Latency: {:.0} μs", metrics.network_latency_us);

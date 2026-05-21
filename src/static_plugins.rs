@@ -71,11 +71,26 @@ impl MonomorphicPluginRunner {
 pub fn print_static_dispatch_report() {
     use console::style;
     println!();
-    println!("  {} {}", style("Monomorphic Dispatch Engine").cyan().bold(),
-        style("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━").dim());
-    println!("  {} Strategy:      {} (zero vtable overhead)", style("▸").dim(), style("Static Enum Dispatch").green());
-    println!("  {} Call latency:  {} (vs 5-10ns for dynamic)", style("▸").dim(), style("~1.2ns").green());
-    println!("  {} Optimization:  {}", style("▸").dim(), style("LLVM Inlining Enabled").yellow());
+    println!(
+        "  {} {}",
+        style("Monomorphic Dispatch Engine").cyan().bold(),
+        style("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━").dim()
+    );
+    println!(
+        "  {} Strategy:      {} (zero vtable overhead)",
+        style("▸").dim(),
+        style("Static Enum Dispatch").green()
+    );
+    println!(
+        "  {} Call latency:  {} (vs 5-10ns for dynamic)",
+        style("▸").dim(),
+        style("~1.2ns").green()
+    );
+    println!(
+        "  {} Optimization:  {}",
+        style("▸").dim(),
+        style("LLVM Inlining Enabled").yellow()
+    );
     println!();
 }
 

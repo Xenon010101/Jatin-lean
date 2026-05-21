@@ -81,7 +81,9 @@ impl CoalescingStats {
     /// Percentage of requests that were coalesced (deduped).
     pub fn coalescing_rate(&self) -> f64 {
         let total = self.total_requests.load(Ordering::Relaxed);
-        if total == 0 { return 0.0; }
+        if total == 0 {
+            return 0.0;
+        }
         let coalesced = self.coalesced_requests.load(Ordering::Relaxed);
         coalesced as f64 / total as f64 * 100.0
     }
@@ -89,7 +91,9 @@ impl CoalescingStats {
     /// Backend load reduction percentage.
     pub fn backend_reduction_pct(&self) -> f64 {
         let total = self.total_requests.load(Ordering::Relaxed);
-        if total == 0 { return 0.0; }
+        if total == 0 {
+            return 0.0;
+        }
         let saved = self.backend_calls_saved.load(Ordering::Relaxed);
         saved as f64 / total as f64 * 100.0
     }
@@ -107,15 +111,21 @@ impl<T: Clone> SingleflightGroup<T> {
     /// `key` identifies the logical request.
     /// `fetch_fn` is called only if no in-flight request exists for this key.
     pub fn do_once<F>(&self, key: &str, fetch_fn: F) -> T
-    where F: FnOnce() -> T {
+    where
+        F: FnOnce() -> T,
+    {
         self.stats.total_requests.fetch_add(1, Ordering::Relaxed);
 
         // Check if result is already available
         {
             let flights = self.flights.read().unwrap();
             if let Some(FlightState::Complete { result, .. }) = flights.get(key) {
-                self.stats.coalesced_requests.fetch_add(1, Ordering::Relaxed);
-                self.stats.backend_calls_saved.fetch_add(1, Ordering::Relaxed);
+                self.stats
+                    .coalesced_requests
+                    .fetch_add(1, Ordering::Relaxed);
+                self.stats
+                    .backend_calls_saved
+                    .fetch_add(1, Ordering::Relaxed);
                 return result.clone();
             }
         }
@@ -126,21 +136,32 @@ impl<T: Clone> SingleflightGroup<T> {
             match flights.get_mut(key) {
                 Some(FlightState::InFlight { waiters, .. }) => {
                     *waiters += 1;
-                    self.stats.coalesced_requests.fetch_add(1, Ordering::Relaxed);
-                    self.stats.backend_calls_saved.fetch_add(1, Ordering::Relaxed);
+                    self.stats
+                        .coalesced_requests
+                        .fetch_add(1, Ordering::Relaxed);
+                    self.stats
+                        .backend_calls_saved
+                        .fetch_add(1, Ordering::Relaxed);
                     // In a real async impl, we'd await a shared future here.
                     // For sync simulation, we execute (this is the "last waiter wins" variant).
                 }
                 Some(FlightState::Complete { result, .. }) => {
-                    self.stats.coalesced_requests.fetch_add(1, Ordering::Relaxed);
-                    self.stats.backend_calls_saved.fetch_add(1, Ordering::Relaxed);
+                    self.stats
+                        .coalesced_requests
+                        .fetch_add(1, Ordering::Relaxed);
+                    self.stats
+                        .backend_calls_saved
+                        .fetch_add(1, Ordering::Relaxed);
                     return result.clone();
                 }
                 None => {
-                    flights.insert(key.to_string(), FlightState::InFlight {
-                        waiters: 0,
-                        started_at: Instant::now(),
-                    });
+                    flights.insert(
+                        key.to_string(),
+                        FlightState::InFlight {
+                            waiters: 0,
+                            started_at: Instant::now(),
+                        },
+                    );
                     self.stats.unique_flights.fetch_add(1, Ordering::Relaxed);
                 }
             }
@@ -152,10 +173,13 @@ impl<T: Clone> SingleflightGroup<T> {
         // Store the result for subsequent waiters
         {
             let mut flights = self.flights.write().unwrap();
-            flights.insert(key.to_string(), FlightState::Complete {
-                result: result.clone(),
-                completed_at: Instant::now(),
-            });
+            flights.insert(
+                key.to_string(),
+                FlightState::Complete {
+                    result: result.clone(),
+                    completed_at: Instant::now(),
+                },
+            );
         }
 
         result
@@ -208,12 +232,14 @@ impl JsonPathExpr {
         let trimmed = expr.strip_prefix('$').unwrap_or(expr);
 
         for part in trimmed.split('.') {
-            if part.is_empty() { continue; }
+            if part.is_empty() {
+                continue;
+            }
 
             if part == "*" {
                 segments.push(PathSegment::Wildcard);
             } else if part.starts_with('[') && part.ends_with(']') {
-                let inner = &part[1..part.len()-1];
+                let inner = &part[1..part.len() - 1];
                 if inner == "*" {
                     segments.push(PathSegment::Wildcard);
                 } else if let Ok(idx) = inner.parse::<usize>() {
@@ -224,7 +250,7 @@ impl JsonPathExpr {
                 let bracket = part.find('[').unwrap();
                 let field = &part[..bracket];
                 segments.push(PathSegment::Field(field.to_string()));
-                let idx_str = &part[bracket+1..part.len()-1];
+                let idx_str = &part[bracket + 1..part.len() - 1];
                 if let Ok(idx) = idx_str.parse::<usize>() {
                     segments.push(PathSegment::Index(idx));
                 }
@@ -314,30 +340,36 @@ impl RequestMerger {
         // Group by resource path
         let mut groups: HashMap<String, Vec<MergeableRequest>> = HashMap::new();
         for req in requests {
-            groups.entry(req.resource_path.clone()).or_default().push(req);
+            groups
+                .entry(req.resource_path.clone())
+                .or_default()
+                .push(req);
         }
 
         // Merge each group
-        groups.into_iter().map(|(path, reqs)| {
-            let mut superset = Vec::new();
-            let mut client_map = HashMap::new();
+        groups
+            .into_iter()
+            .map(|(path, reqs)| {
+                let mut superset = Vec::new();
+                let mut client_map = HashMap::new();
 
-            for req in &reqs {
-                client_map.insert(req.client_id.clone(), req.requested_fields.clone());
-                for field in &req.requested_fields {
-                    if !superset.contains(field) {
-                        superset.push(field.clone());
+                for req in &reqs {
+                    client_map.insert(req.client_id.clone(), req.requested_fields.clone());
+                    for field in &req.requested_fields {
+                        if !superset.contains(field) {
+                            superset.push(field.clone());
+                        }
                     }
                 }
-            }
 
-            MergedQuery {
-                resource_path: path,
-                superset_fields: superset,
-                client_field_map: client_map,
-                client_count: reqs.len(),
-            }
-        }).collect()
+                MergedQuery {
+                    resource_path: path,
+                    superset_fields: superset,
+                    client_field_map: client_map,
+                    client_count: reqs.len(),
+                }
+            })
+            .collect()
     }
 }
 
@@ -386,9 +418,12 @@ impl CacheLayerStats {
         let total = self.hits.load(Ordering::Relaxed)
             + self.misses.load(Ordering::Relaxed)
             + self.partial_hits.load(Ordering::Relaxed);
-        if total == 0 { return 0.0; }
-        (self.hits.load(Ordering::Relaxed) + self.partial_hits.load(Ordering::Relaxed))
-            as f64 / total as f64 * 100.0
+        if total == 0 {
+            return 0.0;
+        }
+        (self.hits.load(Ordering::Relaxed) + self.partial_hits.load(Ordering::Relaxed)) as f64
+            / total as f64
+            * 100.0
     }
 }
 
@@ -410,21 +445,26 @@ impl StructuralCache {
         let resource_cache = entries.entry(resource.to_string()).or_default();
 
         for (field, value) in fields {
-            resource_cache.insert(field, CachedField {
-                value,
-                stored_at: now,
-                expires_at: expires,
-                hit_count: 0,
-            });
+            resource_cache.insert(
+                field,
+                CachedField {
+                    value,
+                    stored_at: now,
+                    expires_at: expires,
+                    hit_count: 0,
+                },
+            );
             self.stats.stored_fields.fetch_add(1, Ordering::Relaxed);
         }
     }
 
     /// Retrieve specific fields for a resource.
     /// Returns (found_fields, missing_fields).
-    pub fn get_fields(&self, resource: &str, requested: &[String])
-        -> (HashMap<String, serde_json::Value>, Vec<String>)
-    {
+    pub fn get_fields(
+        &self,
+        resource: &str,
+        requested: &[String],
+    ) -> (HashMap<String, serde_json::Value>, Vec<String>) {
         let now = Instant::now();
         let entries = self.entries.read().unwrap();
 
@@ -486,18 +526,35 @@ impl StructuralCache {
 pub fn print_coalescing_report(stats: &CoalescingStats) {
     use console::style;
     println!();
-    println!("  {} {}", style("Request Coalescing Report").cyan().bold(),
-        style("━━━━━━━━━━━━━━━━━━━━━━━━━━").dim());
-    println!("  {} Total requests:     {}",
-        style("▸").dim(), style(stats.total_requests.load(Ordering::Relaxed)).white().bold());
-    println!("  {} Coalesced:          {} ({:.1}% deduped)",
-        style("▸").dim(), stats.coalesced_requests.load(Ordering::Relaxed),
-        stats.coalescing_rate());
-    println!("  {} Backend calls saved: {} ({:.1}% reduction)",
-        style("🚀").yellow(), stats.backend_calls_saved.load(Ordering::Relaxed),
-        stats.backend_reduction_pct());
-    println!("  {} Unique flights:     {}",
-        style("▸").dim(), stats.unique_flights.load(Ordering::Relaxed));
+    println!(
+        "  {} {}",
+        style("Request Coalescing Report").cyan().bold(),
+        style("━━━━━━━━━━━━━━━━━━━━━━━━━━").dim()
+    );
+    println!(
+        "  {} Total requests:     {}",
+        style("▸").dim(),
+        style(stats.total_requests.load(Ordering::Relaxed))
+            .white()
+            .bold()
+    );
+    println!(
+        "  {} Coalesced:          {} ({:.1}% deduped)",
+        style("▸").dim(),
+        stats.coalesced_requests.load(Ordering::Relaxed),
+        stats.coalescing_rate()
+    );
+    println!(
+        "  {} Backend calls saved: {} ({:.1}% reduction)",
+        style("🚀").yellow(),
+        stats.backend_calls_saved.load(Ordering::Relaxed),
+        stats.backend_reduction_pct()
+    );
+    println!(
+        "  {} Unique flights:     {}",
+        style("▸").dim(),
+        stats.unique_flights.load(Ordering::Relaxed)
+    );
     println!();
 }
 
@@ -511,11 +568,11 @@ mod tests {
         let mut call_count = 0u32;
 
         // First call triggers the fetch
-        let r1 = sf.do_once("key1", || { "result-A".to_string() });
+        let r1 = sf.do_once("key1", || "result-A".to_string());
         assert_eq!(r1, "result-A");
 
         // Second call for same key gets cached result
-        let r2 = sf.do_once("key1", || { "result-B".to_string() });
+        let r2 = sf.do_once("key1", || "result-B".to_string());
         assert_eq!(r2, "result-A"); // Should be same as first
 
         assert_eq!(sf.stats.total_requests.load(Ordering::Relaxed), 2);
@@ -556,12 +613,14 @@ mod tests {
     fn test_request_merger() {
         let merger = RequestMerger::new(Duration::from_millis(10));
         merger.submit(MergeableRequest {
-            client_id: "A".into(), resource_path: "/users".into(),
+            client_id: "A".into(),
+            resource_path: "/users".into(),
             requested_fields: vec!["name".into(), "email".into()],
             arrived_at: Instant::now(),
         });
         merger.submit(MergeableRequest {
-            client_id: "B".into(), resource_path: "/users".into(),
+            client_id: "B".into(),
+            resource_path: "/users".into(),
             requested_fields: vec!["email".into(), "age".into()],
             arrived_at: Instant::now(),
         });
@@ -580,8 +639,10 @@ mod tests {
         fields.insert("email".to_string(), serde_json::json!("alice@example.com"));
         cache.store_fields("/users/1", fields);
 
-        let (found, missing) = cache.get_fields("/users/1",
-            &["name".to_string(), "email".to_string(), "age".to_string()]);
+        let (found, missing) = cache.get_fields(
+            "/users/1",
+            &["name".to_string(), "email".to_string(), "age".to_string()],
+        );
         assert_eq!(found.len(), 2);
         assert_eq!(missing, vec!["age".to_string()]);
     }

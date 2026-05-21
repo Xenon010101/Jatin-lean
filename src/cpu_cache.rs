@@ -14,14 +14,14 @@ use std::sync::atomic::{AtomicU64, Ordering};
 /// CPU cache hierarchy parameters (modern x86-64).
 #[derive(Debug, Clone)]
 pub struct CacheHierarchy {
-    pub l1d_size: usize,       // L1 data cache (per core)
-    pub l1d_latency_ns: f64,   // ~1ns / 4 cycles
-    pub l1i_size: usize,       // L1 instruction cache
-    pub l2_size: usize,        // L2 unified (per core)
-    pub l2_latency_ns: f64,    // ~4ns / 12 cycles
-    pub l3_size: usize,        // L3 shared (per socket)
-    pub l3_latency_ns: f64,    // ~12ns / 36 cycles
-    pub main_memory_ns: f64,   // ~100ns / 300 cycles
+    pub l1d_size: usize,        // L1 data cache (per core)
+    pub l1d_latency_ns: f64,    // ~1ns / 4 cycles
+    pub l1i_size: usize,        // L1 instruction cache
+    pub l2_size: usize,         // L2 unified (per core)
+    pub l2_latency_ns: f64,     // ~4ns / 12 cycles
+    pub l3_size: usize,         // L3 shared (per socket)
+    pub l3_latency_ns: f64,     // ~12ns / 36 cycles
+    pub main_memory_ns: f64,    // ~100ns / 300 cycles
     pub cache_line_size: usize, // 64 bytes
     pub tlb_entries: usize,     // L1 dTLB entries
     pub page_size: usize,       // 4KB standard
@@ -31,12 +31,12 @@ pub struct CacheHierarchy {
 impl Default for CacheHierarchy {
     fn default() -> Self {
         Self {
-            l1d_size: 48 * 1024,          // 48KB (Intel 12th+ gen)
+            l1d_size: 48 * 1024, // 48KB (Intel 12th+ gen)
             l1d_latency_ns: 1.0,
-            l1i_size: 32 * 1024,          // 32KB
-            l2_size: 1280 * 1024,         // 1.25MB
+            l1i_size: 32 * 1024,  // 32KB
+            l2_size: 1280 * 1024, // 1.25MB
             l2_latency_ns: 4.0,
-            l3_size: 30 * 1024 * 1024,    // 30MB
+            l3_size: 30 * 1024 * 1024, // 30MB
             l3_latency_ns: 12.0,
             main_memory_ns: 100.0,
             cache_line_size: 64,
@@ -54,16 +54,26 @@ impl CacheHierarchy {
         // Try to read from sysfs on Linux
         #[cfg(target_os = "linux")]
         {
-            if let Ok(l1) = std::fs::read_to_string("/sys/devices/system/cpu/cpu0/cache/index0/size") {
+            if let Ok(l1) =
+                std::fs::read_to_string("/sys/devices/system/cpu/cpu0/cache/index0/size")
+            {
                 if let Some(kb) = l1.trim().strip_suffix('K') {
-                    if let Ok(n) = kb.parse::<usize>() { h.l1d_size = n * 1024; }
+                    if let Ok(n) = kb.parse::<usize>() {
+                        h.l1d_size = n * 1024;
+                    }
                 }
             }
-            if let Ok(l2) = std::fs::read_to_string("/sys/devices/system/cpu/cpu0/cache/index2/size") {
+            if let Ok(l2) =
+                std::fs::read_to_string("/sys/devices/system/cpu/cpu0/cache/index2/size")
+            {
                 if let Some(kb) = l2.trim().strip_suffix('K') {
-                    if let Ok(n) = kb.parse::<usize>() { h.l2_size = n * 1024; }
+                    if let Ok(n) = kb.parse::<usize>() {
+                        h.l2_size = n * 1024;
+                    }
                 } else if let Some(mb) = l2.trim().strip_suffix('M') {
-                    if let Ok(n) = mb.parse::<usize>() { h.l2_size = n * 1024 * 1024; }
+                    if let Ok(n) = mb.parse::<usize>() {
+                        h.l2_size = n * 1024 * 1024;
+                    }
                 }
             }
         }
@@ -140,13 +150,21 @@ pub fn prefetch_ahead<T>(slice: &[T], current_idx: usize, ahead: usize) {
 /// Hint to the compiler/CPU that a condition is likely true.
 #[inline(always)]
 pub fn likely(b: bool) -> bool {
-    if !b { std::hint::black_box(false) } else { true }
+    if !b {
+        std::hint::black_box(false)
+    } else {
+        true
+    }
 }
 
 /// Hint to the compiler/CPU that a condition is unlikely true.
 #[inline(always)]
 pub fn unlikely(b: bool) -> bool {
-    if b { std::hint::black_box(true) } else { false }
+    if b {
+        std::hint::black_box(true)
+    } else {
+        false
+    }
 }
 
 // ─── Cache-Oblivious Scanner ─────────────────────────────────────────────────
@@ -188,7 +206,11 @@ impl CacheOptStats {
 
 /// Scan a slice with cache-optimized prefetching.
 /// Prefetches PREFETCH_DISTANCE items ahead to hide memory latency.
-pub fn scan_with_prefetch<T, F>(data: &[T], prefetch_distance: usize, mut process: F) -> CacheOptStats
+pub fn scan_with_prefetch<T, F>(
+    data: &[T],
+    prefetch_distance: usize,
+    mut process: F,
+) -> CacheOptStats
 where
     F: FnMut(&T) -> bool,
 {
@@ -251,8 +273,10 @@ pub fn analyze_tlb(working_set_bytes: usize) -> TlbInfo {
     let pages_4k = (working_set_bytes + hierarchy.page_size - 1) / hierarchy.page_size;
     let pages_2m = (working_set_bytes + hierarchy.huge_page_size - 1) / hierarchy.huge_page_size;
 
-    let standard_coverage = (hierarchy.tlb_entries * hierarchy.page_size) as f64 / working_set_bytes as f64;
-    let huge_coverage = (hierarchy.tlb_entries * hierarchy.huge_page_size) as f64 / working_set_bytes as f64;
+    let standard_coverage =
+        (hierarchy.tlb_entries * hierarchy.page_size) as f64 / working_set_bytes as f64;
+    let huge_coverage =
+        (hierarchy.tlb_entries * hierarchy.huge_page_size) as f64 / working_set_bytes as f64;
 
     TlbInfo {
         pages_4k,
@@ -267,28 +291,47 @@ pub fn analyze_tlb(working_set_bytes: usize) -> TlbInfo {
 pub fn print_cache_report(hierarchy: &CacheHierarchy, stats: &CacheOptStats) {
     use console::style;
     println!();
-    println!("  {} {}", style("CPU Cache Optimization Report").cyan().bold(),
-        style("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━").dim());
-    println!("  {} L1D: {}KB | L2: {}KB | L3: {}MB | Line: {}B",
+    println!(
+        "  {} {}",
+        style("CPU Cache Optimization Report").cyan().bold(),
+        style("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━").dim()
+    );
+    println!(
+        "  {} L1D: {}KB | L2: {}KB | L3: {}MB | Line: {}B",
         style("🖥️").dim(),
         hierarchy.l1d_size / 1024,
         hierarchy.l2_size / 1024,
         hierarchy.l3_size / 1024 / 1024,
-        hierarchy.cache_line_size);
-    println!("  {} Items processed:   {}",
-        style("▸").dim(), stats.items_processed.load(Ordering::Relaxed));
-    println!("  {} Prefetches issued: {}",
-        style("⚡").yellow(), stats.prefetches_issued.load(Ordering::Relaxed));
-    println!("  {} Cache line reads:  {}",
-        style("▸").dim(), stats.cache_line_accesses.load(Ordering::Relaxed));
-    println!("  {} Est. L1 hits: {} | L2: {} | L3: {} | Main mem: {}",
+        hierarchy.cache_line_size
+    );
+    println!(
+        "  {} Items processed:   {}",
+        style("▸").dim(),
+        stats.items_processed.load(Ordering::Relaxed)
+    );
+    println!(
+        "  {} Prefetches issued: {}",
+        style("⚡").yellow(),
+        stats.prefetches_issued.load(Ordering::Relaxed)
+    );
+    println!(
+        "  {} Cache line reads:  {}",
+        style("▸").dim(),
+        stats.cache_line_accesses.load(Ordering::Relaxed)
+    );
+    println!(
+        "  {} Est. L1 hits: {} | L2: {} | L3: {} | Main mem: {}",
         style("▸").dim(),
         stats.estimated_l1_hits.load(Ordering::Relaxed),
         stats.estimated_l2_hits.load(Ordering::Relaxed),
         stats.estimated_l3_hits.load(Ordering::Relaxed),
-        stats.estimated_main_mem.load(Ordering::Relaxed));
-    println!("  {} Est. total latency: {:.1} µs",
-        style("⚡").yellow(), stats.estimated_latency_ns(hierarchy) / 1000.0);
+        stats.estimated_main_mem.load(Ordering::Relaxed)
+    );
+    println!(
+        "  {} Est. total latency: {:.1} µs",
+        style("⚡").yellow(),
+        stats.estimated_latency_ns(hierarchy) / 1000.0
+    );
     println!();
 }
 

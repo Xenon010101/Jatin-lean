@@ -70,13 +70,17 @@ pub struct StructuralScan {
 impl StructuralScan {
     pub fn throughput_gbps(&self) -> f64 {
         let secs = self.scan_duration.as_secs_f64();
-        if secs < 1e-9 { return 0.0; }
+        if secs < 1e-9 {
+            return 0.0;
+        }
         (self.bytes_scanned as f64 * 8.0) / (secs * 1e9)
     }
 
     pub fn throughput_mbs(&self) -> f64 {
         let secs = self.scan_duration.as_secs_f64();
-        if secs < 1e-9 { return 0.0; }
+        if secs < 1e-9 {
+            return 0.0;
+        }
         self.bytes_scanned as f64 / (secs * 1e6)
     }
 }
@@ -101,12 +105,20 @@ impl SimdJsonScanner {
     fn detect_simd_width() -> usize {
         #[cfg(target_arch = "x86_64")]
         {
-            if is_x86_feature_detected!("avx512f") { return 64; }
-            if is_x86_feature_detected!("avx2") { return 32; }
-            if is_x86_feature_detected!("sse4.2") { return 16; }
+            if is_x86_feature_detected!("avx512f") {
+                return 64;
+            }
+            if is_x86_feature_detected!("avx2") {
+                return 32;
+            }
+            if is_x86_feature_detected!("sse4.2") {
+                return 16;
+            }
         }
         #[cfg(target_arch = "aarch64")]
-        { return 16; } // NEON is always 128-bit
+        {
+            return 16;
+        } // NEON is always 128-bit
         8 // Fallback: process 8 bytes at a time
     }
 
@@ -133,7 +145,9 @@ impl SimdJsonScanner {
             let bitmap = self.compute_structural_bitmap(chunk);
 
             for (i, &bit) in bitmap.iter().enumerate() {
-                if bit == 0 { continue; }
+                if bit == 0 {
+                    continue;
+                }
                 let pos = offset + i;
                 let byte = chunk[i];
 
@@ -143,7 +157,9 @@ impl SimdJsonScanner {
                     let escaped = pos > 0 && input[pos - 1] == b'\\';
                     if !escaped {
                         in_string = !in_string;
-                        if in_string { string_count += 1; }
+                        if in_string {
+                            string_count += 1;
+                        }
                         indices.push(StructuralIndex {
                             position: pos,
                             char_type: StructuralChar::Quote,
@@ -154,26 +170,34 @@ impl SimdJsonScanner {
                 }
 
                 // Skip structural chars inside strings
-                if in_string { continue; }
+                if in_string {
+                    continue;
+                }
 
                 if let Some(sc) = StructuralChar::from_byte(byte) {
                     match sc {
                         StructuralChar::ObjectOpen | StructuralChar::ArrayOpen => {
                             depth += 1;
-                            if depth > max_depth { max_depth = depth; }
+                            if depth > max_depth {
+                                max_depth = depth;
+                            }
                             if sc == StructuralChar::ArrayOpen {
                                 array_depth_stack.push(0);
                             }
                         }
                         StructuralChar::ObjectClose | StructuralChar::ArrayClose => {
-                            if depth > 0 { depth -= 1; }
+                            if depth > 0 {
+                                depth -= 1;
+                            }
                             if sc == StructuralChar::ArrayClose {
                                 if let Some(count) = array_depth_stack.pop() {
                                     array_element_count += count + 1;
                                 }
                             }
                         }
-                        StructuralChar::Colon => { kv_count += 1; }
+                        StructuralChar::Colon => {
+                            kv_count += 1;
+                        }
                         StructuralChar::Comma => {
                             if let Some(last) = array_depth_stack.last_mut() {
                                 *last += 1;
@@ -183,7 +207,9 @@ impl SimdJsonScanner {
                     }
 
                     indices.push(StructuralIndex {
-                        position: pos, char_type: sc, depth,
+                        position: pos,
+                        char_type: sc,
+                        depth,
                     });
                 }
             }
@@ -233,10 +259,14 @@ impl SimdJsonScanner {
             if scan.indices[i].char_type == StructuralChar::Quote {
                 let start = scan.indices[i].position + 1;
                 // Find closing quote
-                if i + 1 < scan.indices.len() && scan.indices[i + 1].char_type == StructuralChar::Quote {
+                if i + 1 < scan.indices.len()
+                    && scan.indices[i + 1].char_type == StructuralChar::Quote
+                {
                     let end = scan.indices[i + 1].position;
                     // Check if next structural char is Colon (this is a key)
-                    if i + 2 < scan.indices.len() && scan.indices[i + 2].char_type == StructuralChar::Colon {
+                    if i + 2 < scan.indices.len()
+                        && scan.indices[i + 2].char_type == StructuralChar::Colon
+                    {
                         if let Ok(key) = std::str::from_utf8(&input[start..end]) {
                             keys.push(key);
                         }
@@ -267,7 +297,8 @@ pub fn json_merge_patch(target: &mut serde_json::Value, patch: &serde_json::Valu
                     if value.is_null() {
                         target_obj.remove(key);
                     } else {
-                        let entry = target_obj.entry(key.clone())
+                        let entry = target_obj
+                            .entry(key.clone())
                             .or_insert(serde_json::Value::Null);
                         json_merge_patch(entry, value);
                     }
@@ -281,7 +312,10 @@ pub fn json_merge_patch(target: &mut serde_json::Value, patch: &serde_json::Valu
 }
 
 /// Generate a JSON Merge Patch from two documents (diff).
-pub fn generate_merge_patch(original: &serde_json::Value, modified: &serde_json::Value) -> serde_json::Value {
+pub fn generate_merge_patch(
+    original: &serde_json::Value,
+    modified: &serde_json::Value,
+) -> serde_json::Value {
     match (original, modified) {
         (serde_json::Value::Object(orig), serde_json::Value::Object(modi)) => {
             let mut patch = serde_json::Map::new();
@@ -319,19 +353,52 @@ pub fn generate_merge_patch(original: &serde_json::Value, modified: &serde_json:
 pub fn print_simd_report(scan: &StructuralScan) {
     use console::style;
     println!();
-    println!("  {} {}", style("SIMD JSON Scanner Report").cyan().bold(),
-        style("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━").dim());
-    println!("  {} Bytes scanned:     {}", style("▸").dim(),
-        style(scan.bytes_scanned).green().bold());
-    println!("  {} Structural chars:  {}", style("▸").dim(), scan.indices.len());
-    println!("  {} Max nesting depth: {}", style("▸").dim(), scan.max_depth);
-    println!("  {} String count:      {}", style("▸").dim(), scan.string_count);
-    println!("  {} Key-value pairs:   {}", style("▸").dim(), scan.kv_count);
-    println!("  {} Array elements:    {}", style("▸").dim(), scan.array_element_count);
-    println!("  {} Throughput:        {:.1} MB/s ({:.2} Gbps)",
-        style("⚡").yellow(), scan.throughput_mbs(), scan.throughput_gbps());
-    println!("  {} Scan time:         {:.2} µs",
-        style("▸").dim(), scan.scan_duration.as_nanos() as f64 / 1000.0);
+    println!(
+        "  {} {}",
+        style("SIMD JSON Scanner Report").cyan().bold(),
+        style("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━").dim()
+    );
+    println!(
+        "  {} Bytes scanned:     {}",
+        style("▸").dim(),
+        style(scan.bytes_scanned).green().bold()
+    );
+    println!(
+        "  {} Structural chars:  {}",
+        style("▸").dim(),
+        scan.indices.len()
+    );
+    println!(
+        "  {} Max nesting depth: {}",
+        style("▸").dim(),
+        scan.max_depth
+    );
+    println!(
+        "  {} String count:      {}",
+        style("▸").dim(),
+        scan.string_count
+    );
+    println!(
+        "  {} Key-value pairs:   {}",
+        style("▸").dim(),
+        scan.kv_count
+    );
+    println!(
+        "  {} Array elements:    {}",
+        style("▸").dim(),
+        scan.array_element_count
+    );
+    println!(
+        "  {} Throughput:        {:.1} MB/s ({:.2} Gbps)",
+        style("⚡").yellow(),
+        scan.throughput_mbs(),
+        scan.throughput_gbps()
+    );
+    println!(
+        "  {} Scan time:         {:.2} µs",
+        style("▸").dim(),
+        scan.scan_duration.as_nanos() as f64 / 1000.0
+    );
     println!();
 }
 
@@ -400,7 +467,9 @@ mod tests {
     fn test_large_json_scan() {
         let mut json = String::from(r#"{"items":["#);
         for i in 0..1000 {
-            if i > 0 { json.push(','); }
+            if i > 0 {
+                json.push(',');
+            }
             json.push_str(&format!(r#"{{"id":{},"name":"item-{}"}}"#, i, i));
         }
         json.push_str("]}");

@@ -54,22 +54,31 @@ pub struct HedgingStats {
 impl HedgingStats {
     pub fn new() -> Self {
         Self {
-            requests: AtomicU64::new(0), hedges_sent: AtomicU64::new(0),
-            hedge_wins: AtomicU64::new(0), cancellations: AtomicU64::new(0),
+            requests: AtomicU64::new(0),
+            hedges_sent: AtomicU64::new(0),
+            hedge_wins: AtomicU64::new(0),
+            cancellations: AtomicU64::new(0),
             total_latency_ns: AtomicU64::new(0),
         }
     }
 
     pub fn hedge_win_rate(&self) -> f64 {
         let total = self.hedges_sent.load(Ordering::Relaxed);
-        if total == 0 { return 0.0; }
+        if total == 0 {
+            return 0.0;
+        }
         self.hedge_wins.load(Ordering::Relaxed) as f64 / total as f64 * 100.0
     }
 }
 
 impl HedgingEngine {
     pub fn new(replicas: Vec<String>, strategy: HedgingStrategy) -> Self {
-        Self { replicas, strategy, stats: HedgingStats::new(), p99_history: Vec::new() }
+        Self {
+            replicas,
+            strategy,
+            stats: HedgingStats::new(),
+            p99_history: Vec::new(),
+        }
     }
 
     /// Execute a hedged request. Returns the winning response.
@@ -103,14 +112,22 @@ impl HedgingEngine {
         }
 
         let cancellations = if sent_count > 1 { sent_count - 1 } else { 0 };
-        self.stats.cancellations.fetch_add(cancellations as u64, Ordering::Relaxed);
+        self.stats
+            .cancellations
+            .fetch_add(cancellations as u64, Ordering::Relaxed);
 
         let latency = start.elapsed();
-        self.stats.total_latency_ns.fetch_add(latency.as_nanos() as u64, Ordering::Relaxed);
+        self.stats
+            .total_latency_ns
+            .fetch_add(latency.as_nanos() as u64, Ordering::Relaxed);
 
         HedgedRequest {
-            id, resource: resource.into(), replicas_sent: replicas_to_send,
-            winner: Some(winner), cancellations_sent: cancellations, latency,
+            id,
+            resource: resource.into(),
+            replicas_sent: replicas_to_send,
+            winner: Some(winner),
+            cancellations_sent: cancellations,
+            latency,
         }
     }
 }
@@ -146,30 +163,46 @@ pub struct FragCacheStats {
 impl FragCacheStats {
     pub fn new() -> Self {
         Self {
-            lookups: AtomicU64::new(0), full_hits: AtomicU64::new(0),
-            partial_hits: AtomicU64::new(0), misses: AtomicU64::new(0),
-            fragments_served: AtomicU64::new(0), backend_calls_saved: AtomicU64::new(0),
+            lookups: AtomicU64::new(0),
+            full_hits: AtomicU64::new(0),
+            partial_hits: AtomicU64::new(0),
+            misses: AtomicU64::new(0),
+            fragments_served: AtomicU64::new(0),
+            backend_calls_saved: AtomicU64::new(0),
         }
     }
 
     pub fn hit_rate(&self) -> f64 {
         let total = self.lookups.load(Ordering::Relaxed);
-        if total == 0 { return 0.0; }
-        let hits = self.full_hits.load(Ordering::Relaxed) + self.partial_hits.load(Ordering::Relaxed);
+        if total == 0 {
+            return 0.0;
+        }
+        let hits =
+            self.full_hits.load(Ordering::Relaxed) + self.partial_hits.load(Ordering::Relaxed);
         hits as f64 / total as f64 * 100.0
     }
 }
 
 impl FragmentedCache {
     pub fn new() -> Self {
-        Self { entries: HashMap::new(), stats: FragCacheStats::new() }
+        Self {
+            entries: HashMap::new(),
+            stats: FragCacheStats::new(),
+        }
     }
 
     /// Store a superset of fields for a resource.
     pub fn store(&mut self, key: &str, fields: HashMap<String, serde_json::Value>, ttl: Duration) {
-        self.entries.insert(key.into(), CachedSuperset {
-            resource_key: key.into(), fields, cached_at: Instant::now(), ttl, hit_count: 0,
-        });
+        self.entries.insert(
+            key.into(),
+            CachedSuperset {
+                resource_key: key.into(),
+                fields,
+                cached_at: Instant::now(),
+                ttl,
+                hit_count: 0,
+            },
+        );
     }
 
     /// Fetch a subset of fields from the cached superset.
@@ -196,11 +229,15 @@ impl FragmentedCache {
                 }
             }
 
-            self.stats.fragments_served.fetch_add(found.len() as u64, Ordering::Relaxed);
+            self.stats
+                .fragments_served
+                .fetch_add(found.len() as u64, Ordering::Relaxed);
 
             if missing.is_empty() {
                 self.stats.full_hits.fetch_add(1, Ordering::Relaxed);
-                self.stats.backend_calls_saved.fetch_add(1, Ordering::Relaxed);
+                self.stats
+                    .backend_calls_saved
+                    .fetch_add(1, Ordering::Relaxed);
                 FragmentResult::FullHit(found)
             } else if !found.is_empty() {
                 self.stats.partial_hits.fetch_add(1, Ordering::Relaxed);
@@ -235,42 +272,99 @@ impl FragmentedCache {
 #[derive(Debug)]
 pub enum FragmentResult {
     FullHit(HashMap<String, serde_json::Value>),
-    PartialHit { found: HashMap<String, serde_json::Value>, missing: Vec<String> },
+    PartialHit {
+        found: HashMap<String, serde_json::Value>,
+        missing: Vec<String>,
+    },
     Miss,
 }
 
 fn fnv_hash(data: &[u8]) -> u64 {
     let mut h: u64 = 0xcbf29ce484222325;
-    for &b in data { h ^= b as u64; h = h.wrapping_mul(0x100000001b3); }
+    for &b in data {
+        h ^= b as u64;
+        h = h.wrapping_mul(0x100000001b3);
+    }
     h
 }
 
 pub fn print_hedging_report(stats: &HedgingStats) {
     use console::style;
     println!();
-    println!("  {} {}", style("Request Hedging Report").cyan().bold(),
-        style("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━").dim());
-    println!("  {} Requests:      {}", style("▸").dim(), stats.requests.load(Ordering::Relaxed));
-    println!("  {} Hedges sent:   {}", style("▸").dim(), stats.hedges_sent.load(Ordering::Relaxed));
-    println!("  {} Hedge wins:    {} ({:.1}%)", style("⚡").yellow(),
-        stats.hedge_wins.load(Ordering::Relaxed), stats.hedge_win_rate());
-    println!("  {} Cancellations: {}", style("▸").dim(), stats.cancellations.load(Ordering::Relaxed));
+    println!(
+        "  {} {}",
+        style("Request Hedging Report").cyan().bold(),
+        style("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━").dim()
+    );
+    println!(
+        "  {} Requests:      {}",
+        style("▸").dim(),
+        stats.requests.load(Ordering::Relaxed)
+    );
+    println!(
+        "  {} Hedges sent:   {}",
+        style("▸").dim(),
+        stats.hedges_sent.load(Ordering::Relaxed)
+    );
+    println!(
+        "  {} Hedge wins:    {} ({:.1}%)",
+        style("⚡").yellow(),
+        stats.hedge_wins.load(Ordering::Relaxed),
+        stats.hedge_win_rate()
+    );
+    println!(
+        "  {} Cancellations: {}",
+        style("▸").dim(),
+        stats.cancellations.load(Ordering::Relaxed)
+    );
     println!();
 }
 
 pub fn print_frag_cache_report(stats: &FragCacheStats) {
     use console::style;
     println!();
-    println!("  {} {}", style("Fragmented Cache Report").cyan().bold(),
-        style("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━").dim());
-    println!("  {} Lookups:       {}", style("▸").dim(), stats.lookups.load(Ordering::Relaxed));
-    println!("  {} Full hits:     {}", style("▸").dim(), stats.full_hits.load(Ordering::Relaxed));
-    println!("  {} Partial hits:  {}", style("▸").dim(), stats.partial_hits.load(Ordering::Relaxed));
-    println!("  {} Misses:        {}", style("▸").dim(), stats.misses.load(Ordering::Relaxed));
-    println!("  {} Hit rate:      {:.1}%", style("🚀").yellow(), stats.hit_rate());
-    println!("  {} Fragments:     {}", style("▸").dim(), stats.fragments_served.load(Ordering::Relaxed));
-    println!("  {} Backend saved: {}", style("⚡").yellow(),
-        style(stats.backend_calls_saved.load(Ordering::Relaxed)).green().bold());
+    println!(
+        "  {} {}",
+        style("Fragmented Cache Report").cyan().bold(),
+        style("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━").dim()
+    );
+    println!(
+        "  {} Lookups:       {}",
+        style("▸").dim(),
+        stats.lookups.load(Ordering::Relaxed)
+    );
+    println!(
+        "  {} Full hits:     {}",
+        style("▸").dim(),
+        stats.full_hits.load(Ordering::Relaxed)
+    );
+    println!(
+        "  {} Partial hits:  {}",
+        style("▸").dim(),
+        stats.partial_hits.load(Ordering::Relaxed)
+    );
+    println!(
+        "  {} Misses:        {}",
+        style("▸").dim(),
+        stats.misses.load(Ordering::Relaxed)
+    );
+    println!(
+        "  {} Hit rate:      {:.1}%",
+        style("🚀").yellow(),
+        stats.hit_rate()
+    );
+    println!(
+        "  {} Fragments:     {}",
+        style("▸").dim(),
+        stats.fragments_served.load(Ordering::Relaxed)
+    );
+    println!(
+        "  {} Backend saved: {}",
+        style("⚡").yellow(),
+        style(stats.backend_calls_saved.load(Ordering::Relaxed))
+            .green()
+            .bold()
+    );
     println!();
 }
 
@@ -343,6 +437,9 @@ mod tests {
     fn test_cache_miss() {
         let mut cache = FragmentedCache::new();
         let result = cache.fetch_fragment("/nonexistent", &["name"]);
-        match result { FragmentResult::Miss => {}, _ => panic!("Expected miss") }
+        match result {
+            FragmentResult::Miss => {}
+            _ => panic!("Expected miss"),
+        }
     }
 }

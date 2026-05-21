@@ -329,7 +329,9 @@ impl EngineStats {
 
     pub fn gpu_offload_rate(&self) -> f64 {
         let total = self.total_dispatches();
-        if total == 0 { return 0.0; }
+        if total == 0 {
+            return 0.0;
+        }
         let gpu = self.gpu_dispatches.load(Ordering::Relaxed)
             + self.hybrid_dispatches.load(Ordering::Relaxed);
         gpu as f64 / total as f64 * 100.0
@@ -384,8 +386,10 @@ impl AdaptiveEngine {
             return RoutingDecision {
                 target: ComputeTarget::CpuFallback,
                 memory_paradigm: self.hardware.memory_paradigm,
-                reason: format!("GPU utilization {:.0}% exceeds threshold → CPU fallback", 
-                    self.hardware.gpu_utilization * 100.0),
+                reason: format!(
+                    "GPU utilization {:.0}% exceeds threshold → CPU fallback",
+                    self.hardware.gpu_utilization * 100.0
+                ),
                 estimated_speedup: 0.5,
                 confidence: 0.8,
             };
@@ -407,7 +411,8 @@ impl AdaptiveEngine {
                 return RoutingDecision {
                     target: ComputeTarget::CpuFallback,
                     memory_paradigm: MemoryParadigm::SoftwareCoherentUnified,
-                    reason: "Data exceeds VRAM, no NVLink → CPU fallback with cudaMallocManaged".into(),
+                    reason: "Data exceeds VRAM, no NVLink → CPU fallback with cudaMallocManaged"
+                        .into(),
                     estimated_speedup: 0.3,
                     confidence: 0.7,
                 };
@@ -416,7 +421,11 @@ impl AdaptiveEngine {
 
         // Rule 5: Matrix/vector work → GPU
         if profile.matrix_heavy || profile.workload_type == WorkloadType::VectorEmbedding {
-            let speedup = if self.hardware.nvlink_available { 50.0 } else { 20.0 };
+            let speedup = if self.hardware.nvlink_available {
+                50.0
+            } else {
+                20.0
+            };
             return RoutingDecision {
                 target: ComputeTarget::Gpu,
                 memory_paradigm: self.hardware.memory_paradigm,
@@ -468,15 +477,22 @@ impl AdaptiveEngine {
             ComputeTarget::Cpu => self.stats.cpu_dispatches.fetch_add(1, Ordering::Relaxed),
             ComputeTarget::Gpu => {
                 self.stats.gpu_dispatches.fetch_add(1, Ordering::Relaxed);
-                self.stats.gpu_offload_bytes.fetch_add(profile.data_size_bytes, Ordering::Relaxed);
+                self.stats
+                    .gpu_offload_bytes
+                    .fetch_add(profile.data_size_bytes, Ordering::Relaxed);
                 0
             }
             ComputeTarget::Hybrid => self.stats.hybrid_dispatches.fetch_add(1, Ordering::Relaxed),
-            ComputeTarget::CpuFallback => self.stats.fallback_dispatches.fetch_add(1, Ordering::Relaxed),
+            ComputeTarget::CpuFallback => self
+                .stats
+                .fallback_dispatches
+                .fetch_add(1, Ordering::Relaxed),
         };
 
         let elapsed = start.elapsed();
-        self.stats.total_compute_ns.fetch_add(elapsed.as_nanos() as u64, Ordering::Relaxed);
+        self.stats
+            .total_compute_ns
+            .fetch_add(elapsed.as_nanos() as u64, Ordering::Relaxed);
 
         ExecutionResult {
             workload_id: profile.id.clone(),
@@ -502,23 +518,52 @@ pub struct ExecutionResult {
 pub fn print_engine_report(stats: &EngineStats, hw: &HardwareState) {
     use console::style;
     println!();
-    println!("  {} {}", style("Adaptive Execution Engine").cyan().bold(),
-        style("━━━━━━━━━━━━━━━━━━━━━━━━━━━").dim());
-    println!("  {} Hardware: {} cores | {} | {}",
-        style("🖥️").dim(), hw.cpu_cores_available,
+    println!(
+        "  {} {}",
+        style("Adaptive Execution Engine").cyan().bold(),
+        style("━━━━━━━━━━━━━━━━━━━━━━━━━━━").dim()
+    );
+    println!(
+        "  {} Hardware: {} cores | {} | {}",
+        style("🖥️").dim(),
+        hw.cpu_cores_available,
         if hw.gpu_present { "GPU ✓" } else { "No GPU" },
-        if hw.nvlink_available { "NVLink ✓" } else { "PCIe" });
-    println!("  {} Memory paradigm: {}", style("▸").dim(), hw.memory_paradigm.label());
-    println!("  {} CPU dispatches:      {}", style("🔵").dim(),
-        stats.cpu_dispatches.load(Ordering::Relaxed));
-    println!("  {} GPU dispatches:      {}", style("🟢").dim(),
-        stats.gpu_dispatches.load(Ordering::Relaxed));
-    println!("  {} Hybrid dispatches:   {}", style("🟡").dim(),
-        stats.hybrid_dispatches.load(Ordering::Relaxed));
-    println!("  {} Fallback dispatches: {}", style("🔴").dim(),
-        stats.fallback_dispatches.load(Ordering::Relaxed));
-    println!("  {} GPU offload rate:    {:.1}%", style("⚡").yellow(),
-        stats.gpu_offload_rate());
+        if hw.nvlink_available {
+            "NVLink ✓"
+        } else {
+            "PCIe"
+        }
+    );
+    println!(
+        "  {} Memory paradigm: {}",
+        style("▸").dim(),
+        hw.memory_paradigm.label()
+    );
+    println!(
+        "  {} CPU dispatches:      {}",
+        style("🔵").dim(),
+        stats.cpu_dispatches.load(Ordering::Relaxed)
+    );
+    println!(
+        "  {} GPU dispatches:      {}",
+        style("🟢").dim(),
+        stats.gpu_dispatches.load(Ordering::Relaxed)
+    );
+    println!(
+        "  {} Hybrid dispatches:   {}",
+        style("🟡").dim(),
+        stats.hybrid_dispatches.load(Ordering::Relaxed)
+    );
+    println!(
+        "  {} Fallback dispatches: {}",
+        style("🔴").dim(),
+        stats.fallback_dispatches.load(Ordering::Relaxed)
+    );
+    println!(
+        "  {} GPU offload rate:    {:.1}%",
+        style("⚡").yellow(),
+        stats.gpu_offload_rate()
+    );
     println!();
 }
 
@@ -530,10 +575,14 @@ mod tests {
     fn test_cpu_only_engine() {
         let engine = AdaptiveEngine::new(); // No GPU detected
         let profile = WorkloadProfile {
-            id: "test".into(), data_size_bytes: 1024,
-            estimated_flops: 1000, parallelizable: false,
-            string_heavy: false, matrix_heavy: false,
-            branch_divergent: false, memory_required_bytes: 1024,
+            id: "test".into(),
+            data_size_bytes: 1024,
+            estimated_flops: 1000,
+            parallelizable: false,
+            string_heavy: false,
+            matrix_heavy: false,
+            branch_divergent: false,
+            memory_required_bytes: 1024,
             workload_type: WorkloadType::General,
         };
         let decision = engine.route(&profile);
@@ -544,10 +593,14 @@ mod tests {
     fn test_string_routes_to_cpu() {
         let engine = AdaptiveEngine::with_hardware(HardwareState::simulated_grace_hopper());
         let profile = WorkloadProfile {
-            id: "regex".into(), data_size_bytes: 100_000_000,
-            estimated_flops: 10_000_000, parallelizable: true,
-            string_heavy: true, matrix_heavy: false,
-            branch_divergent: true, memory_required_bytes: 100_000_000,
+            id: "regex".into(),
+            data_size_bytes: 100_000_000,
+            estimated_flops: 10_000_000,
+            parallelizable: true,
+            string_heavy: true,
+            matrix_heavy: false,
+            branch_divergent: true,
+            memory_required_bytes: 100_000_000,
             workload_type: WorkloadType::StringProcessing,
         };
         let decision = engine.route(&profile);
@@ -558,10 +611,14 @@ mod tests {
     fn test_matrix_routes_to_gpu() {
         let engine = AdaptiveEngine::with_hardware(HardwareState::simulated_grace_hopper());
         let profile = WorkloadProfile {
-            id: "matmul".into(), data_size_bytes: 1024 * 1024 * 100,
-            estimated_flops: 1_000_000_000, parallelizable: true,
-            string_heavy: false, matrix_heavy: true,
-            branch_divergent: false, memory_required_bytes: 1024 * 1024 * 100,
+            id: "matmul".into(),
+            data_size_bytes: 1024 * 1024 * 100,
+            estimated_flops: 1_000_000_000,
+            parallelizable: true,
+            string_heavy: false,
+            matrix_heavy: true,
+            branch_divergent: false,
+            memory_required_bytes: 1024 * 1024 * 100,
             workload_type: WorkloadType::MatrixComputation,
         };
         let decision = engine.route(&profile);
@@ -576,14 +633,19 @@ mod tests {
             id: "huge-llm".into(),
             data_size_bytes: 200 * 1024 * 1024 * 1024, // 200GB
             estimated_flops: 10_000_000_000,
-            parallelizable: true, string_heavy: false, matrix_heavy: true,
+            parallelizable: true,
+            string_heavy: false,
+            matrix_heavy: true,
             branch_divergent: false,
             memory_required_bytes: 200 * 1024 * 1024 * 1024, // exceeds 80GB VRAM
             workload_type: WorkloadType::LlmInference,
         };
         let decision = engine.route(&profile);
         assert_eq!(decision.target, ComputeTarget::Hybrid);
-        assert_eq!(decision.memory_paradigm, MemoryParadigm::HardwareCoherentUnified);
+        assert_eq!(
+            decision.memory_paradigm,
+            MemoryParadigm::HardwareCoherentUnified
+        );
     }
 
     #[test]
@@ -607,10 +669,14 @@ mod tests {
     fn test_execute_records_stats() {
         let engine = AdaptiveEngine::new();
         let profile = WorkloadProfile {
-            id: "exec-test".into(), data_size_bytes: 1024,
-            estimated_flops: 100, parallelizable: false,
-            string_heavy: false, matrix_heavy: false,
-            branch_divergent: false, memory_required_bytes: 1024,
+            id: "exec-test".into(),
+            data_size_bytes: 1024,
+            estimated_flops: 100,
+            parallelizable: false,
+            string_heavy: false,
+            matrix_heavy: false,
+            branch_divergent: false,
+            memory_required_bytes: 1024,
             workload_type: WorkloadType::General,
         };
         let result = engine.execute(&profile);

@@ -65,7 +65,16 @@ pub fn benchmark_table() -> Vec<SerializationBenchmark> {
 
 /// A microservice API response — zero-copy serializable.
 /// When serialized with rkyv, network bytes map directly to this struct.
-#[derive(Archive, RkyvDeserialize, RkyvSerialize, SerdeSerialize, SerdeDeserialize, Debug, Clone, PartialEq)]
+#[derive(
+    Archive,
+    RkyvDeserialize,
+    RkyvSerialize,
+    SerdeSerialize,
+    SerdeDeserialize,
+    Debug,
+    Clone,
+    PartialEq,
+)]
 #[archive(check_bytes)]
 pub struct ApiResponse {
     pub status_code: u32,
@@ -76,7 +85,16 @@ pub struct ApiResponse {
 }
 
 /// Header key-value pair.
-#[derive(Archive, RkyvDeserialize, RkyvSerialize, SerdeSerialize, SerdeDeserialize, Debug, Clone, PartialEq)]
+#[derive(
+    Archive,
+    RkyvDeserialize,
+    RkyvSerialize,
+    SerdeSerialize,
+    SerdeDeserialize,
+    Debug,
+    Clone,
+    PartialEq,
+)]
 #[archive(check_bytes)]
 pub struct HeaderPair {
     pub key: String,
@@ -84,7 +102,16 @@ pub struct HeaderPair {
 }
 
 /// Response body variants — demonstrates nested enum support.
-#[derive(Archive, RkyvDeserialize, RkyvSerialize, SerdeSerialize, SerdeDeserialize, Debug, Clone, PartialEq)]
+#[derive(
+    Archive,
+    RkyvDeserialize,
+    RkyvSerialize,
+    SerdeSerialize,
+    SerdeDeserialize,
+    Debug,
+    Clone,
+    PartialEq,
+)]
 #[archive(check_bytes)]
 pub enum ResponseBody {
     /// JSON-like structured data
@@ -96,7 +123,16 @@ pub enum ResponseBody {
 }
 
 /// Deeply nested structured data (analogous to complex JSON API).
-#[derive(Archive, RkyvDeserialize, RkyvSerialize, SerdeSerialize, SerdeDeserialize, Debug, Clone, PartialEq)]
+#[derive(
+    Archive,
+    RkyvDeserialize,
+    RkyvSerialize,
+    SerdeSerialize,
+    SerdeDeserialize,
+    Debug,
+    Clone,
+    PartialEq,
+)]
 #[archive(check_bytes)]
 pub struct StructuredData {
     pub entities: Vec<Entity>,
@@ -105,7 +141,16 @@ pub struct StructuredData {
 }
 
 /// Entity in the response.
-#[derive(Archive, RkyvDeserialize, RkyvSerialize, SerdeSerialize, SerdeDeserialize, Debug, Clone, PartialEq)]
+#[derive(
+    Archive,
+    RkyvDeserialize,
+    RkyvSerialize,
+    SerdeSerialize,
+    SerdeDeserialize,
+    Debug,
+    Clone,
+    PartialEq,
+)]
 #[archive(check_bytes)]
 pub struct Entity {
     pub id: u64,
@@ -118,7 +163,16 @@ pub struct Entity {
 }
 
 /// Entity attribute.
-#[derive(Archive, RkyvDeserialize, RkyvSerialize, SerdeSerialize, SerdeDeserialize, Debug, Clone, PartialEq)]
+#[derive(
+    Archive,
+    RkyvDeserialize,
+    RkyvSerialize,
+    SerdeSerialize,
+    SerdeDeserialize,
+    Debug,
+    Clone,
+    PartialEq,
+)]
 #[archive(check_bytes)]
 pub struct Attribute {
     pub key: String,
@@ -126,7 +180,16 @@ pub struct Attribute {
 }
 
 /// Attribute value variant.
-#[derive(Archive, RkyvDeserialize, RkyvSerialize, SerdeSerialize, SerdeDeserialize, Debug, Clone, PartialEq)]
+#[derive(
+    Archive,
+    RkyvDeserialize,
+    RkyvSerialize,
+    SerdeSerialize,
+    SerdeDeserialize,
+    Debug,
+    Clone,
+    PartialEq,
+)]
 #[archive(check_bytes)]
 pub enum AttributeValue {
     String(String),
@@ -136,7 +199,16 @@ pub enum AttributeValue {
 }
 
 /// Pagination info.
-#[derive(Archive, RkyvDeserialize, RkyvSerialize, SerdeSerialize, SerdeDeserialize, Debug, Clone, PartialEq)]
+#[derive(
+    Archive,
+    RkyvDeserialize,
+    RkyvSerialize,
+    SerdeSerialize,
+    SerdeDeserialize,
+    Debug,
+    Clone,
+    PartialEq,
+)]
 #[archive(check_bytes)]
 pub struct Pagination {
     pub page: u32,
@@ -146,7 +218,16 @@ pub struct Pagination {
 }
 
 /// Response metadata.
-#[derive(Archive, RkyvDeserialize, RkyvSerialize, SerdeSerialize, SerdeDeserialize, Debug, Clone, PartialEq)]
+#[derive(
+    Archive,
+    RkyvDeserialize,
+    RkyvSerialize,
+    SerdeSerialize,
+    SerdeDeserialize,
+    Debug,
+    Clone,
+    PartialEq,
+)]
 #[archive(check_bytes)]
 pub struct DataMetadata {
     pub version: String,
@@ -177,32 +258,45 @@ pub struct SerdeStats {
 
 impl SerdeStats {
     pub fn avg_serialize_ns(&self) -> f64 {
-        if self.serialize_count == 0 { 0.0 }
-        else { self.total_serialize_ns as f64 / self.serialize_count as f64 }
+        if self.serialize_count == 0 {
+            0.0
+        } else {
+            self.total_serialize_ns as f64 / self.serialize_count as f64
+        }
     }
 
     pub fn avg_deserialize_ns(&self) -> f64 {
-        if self.deserialize_count == 0 { 0.0 }
-        else { self.total_deserialize_ns as f64 / self.deserialize_count as f64 }
+        if self.deserialize_count == 0 {
+            0.0
+        } else {
+            self.total_deserialize_ns as f64 / self.deserialize_count as f64
+        }
     }
 
     pub fn avg_json_parse_ns(&self) -> f64 {
-        if self.json_parse_count == 0 { 0.0 }
-        else { self.json_parse_ns as f64 / self.json_parse_count as f64 }
+        if self.json_parse_count == 0 {
+            0.0
+        } else {
+            self.json_parse_ns as f64 / self.json_parse_count as f64
+        }
     }
 
     /// Speedup factor of rkyv over JSON parsing.
     pub fn speedup_factor(&self) -> f64 {
         let json_avg = self.avg_json_parse_ns();
         let rkyv_avg = self.avg_deserialize_ns();
-        if rkyv_avg < 1.0 { return 0.0; }
+        if rkyv_avg < 1.0 {
+            return 0.0;
+        }
         json_avg / rkyv_avg
     }
 }
 
 impl ZeroCopyEngine {
     pub fn new() -> Self {
-        Self { stats: SerdeStats::default() }
+        Self {
+            stats: SerdeStats::default(),
+        }
     }
 
     /// Serialize an ApiResponse to rkyv binary format (zero-copy ready).
@@ -260,36 +354,49 @@ impl ZeroCopyEngine {
 
     /// Build a sample response for benchmarking.
     pub fn sample_response(entity_count: usize) -> ApiResponse {
-        let entities: Vec<Entity> = (0..entity_count).map(|i| Entity {
-            id: i as u64,
-            name: format!("entity-{}", i),
-            entity_type: "record".to_string(),
-            score: (i as f64) * 0.1,
-            tags: vec!["alpha".to_string(), "beta".to_string()],
-            attributes: vec![
-                Attribute {
-                    key: "region".to_string(),
-                    value: AttributeValue::String("us-east-1".to_string()),
-                },
-                Attribute {
-                    key: "weight".to_string(),
-                    value: AttributeValue::Number(42.5),
-                },
-            ],
-            active: i % 2 == 0,
-        }).collect();
+        let entities: Vec<Entity> = (0..entity_count)
+            .map(|i| Entity {
+                id: i as u64,
+                name: format!("entity-{}", i),
+                entity_type: "record".to_string(),
+                score: (i as f64) * 0.1,
+                tags: vec!["alpha".to_string(), "beta".to_string()],
+                attributes: vec![
+                    Attribute {
+                        key: "region".to_string(),
+                        value: AttributeValue::String("us-east-1".to_string()),
+                    },
+                    Attribute {
+                        key: "weight".to_string(),
+                        value: AttributeValue::Number(42.5),
+                    },
+                ],
+                active: i % 2 == 0,
+            })
+            .collect();
 
         ApiResponse {
             status_code: 200,
             request_id: "req-abc-123".to_string(),
             timestamp_ms: 1700000000000,
             headers: vec![
-                HeaderPair { key: "Content-Type".to_string(), value: "application/octet-stream".to_string() },
-                HeaderPair { key: "X-Request-Id".to_string(), value: "req-abc-123".to_string() },
+                HeaderPair {
+                    key: "Content-Type".to_string(),
+                    value: "application/octet-stream".to_string(),
+                },
+                HeaderPair {
+                    key: "X-Request-Id".to_string(),
+                    value: "req-abc-123".to_string(),
+                },
             ],
             body: ResponseBody::Structured(StructuredData {
                 entities,
-                pagination: Pagination { page: 1, per_page: 50, total: 1000, has_next: true },
+                pagination: Pagination {
+                    page: 1,
+                    per_page: 50,
+                    total: 1000,
+                    has_next: true,
+                },
                 metadata: DataMetadata {
                     version: "2.0".to_string(),
                     cache_ttl_seconds: 300,
@@ -304,19 +411,37 @@ impl ZeroCopyEngine {
 pub fn print_serde_report(stats: &SerdeStats) {
     use console::style;
     println!();
-    println!("  {} {}", style("Zero-Copy Serialization Report").cyan().bold(),
-        style("━━━━━━━━━━━━━━━━━━━━━━━━").dim());
-    println!("  {} rkyv serialize:    {:.0} ns avg ({} ops, {} bytes)",
-        style("⚡").yellow(), stats.avg_serialize_ns(),
-        stats.serialize_count, stats.total_bytes_serialized);
-    println!("  {} rkyv deserialize:  {:.0} ns avg ({} ops)",
-        style("⚡").yellow(), stats.avg_deserialize_ns(), stats.deserialize_count);
-    println!("  {} JSON parse:        {:.0} ns avg ({} ops)",
-        style("▸").dim(), stats.avg_json_parse_ns(), stats.json_parse_count);
+    println!(
+        "  {} {}",
+        style("Zero-Copy Serialization Report").cyan().bold(),
+        style("━━━━━━━━━━━━━━━━━━━━━━━━").dim()
+    );
+    println!(
+        "  {} rkyv serialize:    {:.0} ns avg ({} ops, {} bytes)",
+        style("⚡").yellow(),
+        stats.avg_serialize_ns(),
+        stats.serialize_count,
+        stats.total_bytes_serialized
+    );
+    println!(
+        "  {} rkyv deserialize:  {:.0} ns avg ({} ops)",
+        style("⚡").yellow(),
+        stats.avg_deserialize_ns(),
+        stats.deserialize_count
+    );
+    println!(
+        "  {} JSON parse:        {:.0} ns avg ({} ops)",
+        style("▸").dim(),
+        stats.avg_json_parse_ns(),
+        stats.json_parse_count
+    );
     let speedup = stats.speedup_factor();
     if speedup > 0.0 {
-        println!("  {} Speedup:           {}x faster than JSON",
-            style("🚀").yellow(), style(format!("{:.0}", speedup)).green().bold());
+        println!(
+            "  {} Speedup:           {}x faster than JSON",
+            style("🚀").yellow(),
+            style(format!("{:.0}", speedup)).green().bold()
+        );
     }
     println!();
 }

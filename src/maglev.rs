@@ -115,7 +115,9 @@ impl MaglevHashRing {
     pub fn distribution(&self) -> HashMap<String, usize> {
         let mut counts: HashMap<String, usize> = HashMap::new();
         for &backend_idx in &self.table {
-            *counts.entry(self.backends[backend_idx].clone()).or_insert(0) += 1;
+            *counts
+                .entry(self.backends[backend_idx].clone())
+                .or_insert(0) += 1;
         }
         counts
     }
@@ -124,20 +126,26 @@ impl MaglevHashRing {
     pub fn distribution_stddev(&self) -> f64 {
         let dist = self.distribution();
         let mean = self.table_size as f64 / self.backends.len() as f64;
-        let variance: f64 = dist.values()
+        let variance: f64 = dist
+            .values()
             .map(|&count| (count as f64 - mean).powi(2))
-            .sum::<f64>() / dist.len() as f64;
+            .sum::<f64>()
+            / dist.len() as f64;
         variance.sqrt()
     }
 
     /// Disruption rate when removing one backend.
     /// Returns percentage of keys that would move.
     pub fn disruption_rate(&self, removed_backend: &str) -> f64 {
-        let remaining: Vec<String> = self.backends.iter()
+        let remaining: Vec<String> = self
+            .backends
+            .iter()
             .filter(|b| b.as_str() != removed_backend)
             .cloned()
             .collect();
-        if remaining.is_empty() { return 100.0; }
+        if remaining.is_empty() {
+            return 100.0;
+        }
 
         let new_ring = MaglevHashRing::new(remaining, self.table_size);
         let mut moved = 0;
@@ -182,22 +190,49 @@ pub fn fnv1a_seed(data: &[u8], seed: u64) -> u64 {
 pub fn print_maglev_report(ring: &MaglevHashRing) {
     use console::style;
     println!();
-    println!("  {} {}", style("Maglev Consistent Hash Ring").cyan().bold(),
-        style("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━").dim());
-    println!("  {} Table size:    {} (prime)", style("▸").dim(), ring.table_size);
-    println!("  {} Backends:      {}", style("▸").dim(), ring.backends.len());
-    println!("  {} Build time:    {:.2} µs", style("▸").dim(),
-        ring.stats.table_build_ns as f64 / 1000.0);
-    println!("  {} Lookups:       {}", style("▸").dim(), ring.stats.lookups);
-    println!("  {} Std deviation: {:.2}", style("▸").dim(), ring.distribution_stddev());
+    println!(
+        "  {} {}",
+        style("Maglev Consistent Hash Ring").cyan().bold(),
+        style("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━").dim()
+    );
+    println!(
+        "  {} Table size:    {} (prime)",
+        style("▸").dim(),
+        ring.table_size
+    );
+    println!(
+        "  {} Backends:      {}",
+        style("▸").dim(),
+        ring.backends.len()
+    );
+    println!(
+        "  {} Build time:    {:.2} µs",
+        style("▸").dim(),
+        ring.stats.table_build_ns as f64 / 1000.0
+    );
+    println!(
+        "  {} Lookups:       {}",
+        style("▸").dim(),
+        ring.stats.lookups
+    );
+    println!(
+        "  {} Std deviation: {:.2}",
+        style("▸").dim(),
+        ring.distribution_stddev()
+    );
 
     let dist = ring.distribution();
     let ideal = ring.table_size / ring.backends.len();
     for (backend, count) in &dist {
         let pct = *count as f64 / ring.table_size as f64 * 100.0;
         let skew = (*count as f64 / ideal as f64 - 1.0) * 100.0;
-        println!("    {} → {} slots ({:.1}%, skew: {:+.1}%)",
-            style(backend).yellow(), count, pct, skew);
+        println!(
+            "    {} → {} slots ({:.1}%, skew: {:+.1}%)",
+            style(backend).yellow(),
+            count,
+            pct,
+            skew
+        );
     }
     println!();
 }

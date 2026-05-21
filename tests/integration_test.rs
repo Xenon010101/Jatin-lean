@@ -322,5 +322,8 @@ fn test_profiler_with_profiling() {
     profiler.start_span("test");
     profiler.end_span(100);
     profiler.record_discovery(std::time::Duration::from_millis(10));
-    assert_eq!(profiler.phase_breakdown.discovery, std::time::Duration::from_millis(10));
+    assert_eq!(
+        profiler.phase_breakdown.discovery,
+        std::time::Duration::from_millis(10)
+    );
 }

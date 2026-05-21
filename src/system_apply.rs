@@ -92,7 +92,10 @@ impl SystemSnapshot {
         // Restore I/O schedulers
         for (device, scheduler) in &self.io_scheduler {
             if let Err(e) = set_io_scheduler(device, scheduler) {
-                eprintln!("Warning: Failed to restore I/O scheduler for {}: {}", device, e);
+                eprintln!(
+                    "Warning: Failed to restore I/O scheduler for {}: {}",
+                    device, e
+                );
             }
         }
 
@@ -154,10 +157,7 @@ pub fn get_available_governors() -> Result<Vec<String>> {
     let path = "/sys/devices/system/cpu/cpu0/cpufreq/scaling_available_governors";
     if Path::new(path).exists() {
         let content = fs::read_to_string(path)?;
-        let governors: Vec<String> = content
-            .split_whitespace()
-            .map(|s| s.to_string())
-            .collect();
+        let governors: Vec<String> = content.split_whitespace().map(|s| s.to_string()).collect();
         Ok(governors)
     } else {
         Ok(vec![])
@@ -194,7 +194,10 @@ pub fn apply_cpu_governor(governor: &str) -> Result<()> {
     // Fallback: write directly to sysfs
     let cpu_count = num_cpus::get();
     for cpu in 0..cpu_count {
-        let path = format!("/sys/devices/system/cpu/cpu{}/cpufreq/scaling_governor", cpu);
+        let path = format!(
+            "/sys/devices/system/cpu/cpu{}/cpufreq/scaling_governor",
+            cpu
+        );
         if Path::new(&path).exists() {
             fs::write(&path, governor)?;
         }
@@ -243,10 +246,7 @@ pub fn read_current_sysctl() -> Result<HashMap<String, String>> {
 
 /// Get sysctl value
 pub fn sysctl_get(key: &str) -> Result<String> {
-    let output = Command::new("sysctl")
-        .arg("-n")
-        .arg(key)
-        .output()?;
+    let output = Command::new("sysctl").arg("-n").arg(key).output()?;
 
     if output.status.success() {
         Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
@@ -308,7 +308,9 @@ pub fn read_network_settings() -> Result<NetworkSettings> {
     Ok(NetworkSettings {
         tcp_fastopen: sysctl_get("net.ipv4.tcp_fastopen")?.parse().unwrap_or(0),
         somaxconn: sysctl_get("net.core.somaxconn")?.parse().unwrap_or(128),
-        tcp_fin_timeout: sysctl_get("net.ipv4.tcp_fin_timeout")?.parse().unwrap_or(60),
+        tcp_fin_timeout: sysctl_get("net.ipv4.tcp_fin_timeout")?
+            .parse()
+            .unwrap_or(60),
         rmem_max: sysctl_get("net.core.rmem_max")?.parse().unwrap_or(212992),
         wmem_max: sysctl_get("net.core.wmem_max")?.parse().unwrap_or(212992),
     })
@@ -320,7 +322,10 @@ pub fn apply_network_settings(settings: &NetworkSettings) -> Result<()> {
 
     sysctl_set("net.ipv4.tcp_fastopen", &settings.tcp_fastopen.to_string())?;
     sysctl_set("net.core.somaxconn", &settings.somaxconn.to_string())?;
-    sysctl_set("net.ipv4.tcp_fin_timeout", &settings.tcp_fin_timeout.to_string())?;
+    sysctl_set(
+        "net.ipv4.tcp_fin_timeout",
+        &settings.tcp_fin_timeout.to_string(),
+    )?;
     sysctl_set("net.core.rmem_max", &settings.rmem_max.to_string())?;
     sysctl_set("net.core.wmem_max", &settings.wmem_max.to_string())?;
 
@@ -332,11 +337,11 @@ pub fn apply_optimized_network_tuning() -> Result<()> {
     require_root()?;
 
     let settings = NetworkSettings {
-        tcp_fastopen: 3,           // Enable for both client and server
-        somaxconn: 4096,           // Increase connection backlog
-        tcp_fin_timeout: 30,       // Reduce TIME_WAIT
-        rmem_max: 16777216,        // 16MB receive buffer
-        wmem_max: 16777216,        // 16MB send buffer
+        tcp_fastopen: 3,     // Enable for both client and server
+        somaxconn: 4096,     // Increase connection backlog
+        tcp_fin_timeout: 30, // Reduce TIME_WAIT
+        rmem_max: 16777216,  // 16MB receive buffer
+        wmem_max: 16777216,  // 16MB send buffer
     };
 
     apply_network_settings(&settings)?;
@@ -529,7 +534,11 @@ pub fn pin_to_numa_node(pid: u32, node: usize) -> Result<()> {
         .status()?;
 
     if !status.success() {
-        return Err(anyhow!("Failed to pin process {} to NUMA node {}", pid, node));
+        return Err(anyhow!(
+            "Failed to pin process {} to NUMA node {}",
+            pid,
+            node
+        ));
     }
 
     Ok(())

@@ -4,55 +4,55 @@
 //! node_modules pruning, system tuning, network analysis, memory
 //! optimization, benchmarking, and AI-friendly context generation.
 
+mod adaptive_engine;
+mod ai_context;
 mod allocator;
 mod analytics;
+mod analyzer;
 mod benchmark;
+mod bpf_verifier;
 mod cache;
+mod cli;
 mod compress;
 mod config;
+mod cpu_cache;
 mod dedup;
 mod deleter;
 mod display;
+mod distributed_cache;
+mod hardware_tuning;
 mod health;
+mod hedging;
+mod io_uring;
 mod lockfile;
+mod maglev;
+mod memory_pool;
 mod mmap;
+mod mmap_ipc;
 mod network;
+mod output;
+mod pcie_bottleneck;
 mod plugin;
 mod policy;
 mod profiler;
+mod request_coalescing;
+mod ringbuffer;
 mod rules;
 mod scanner;
+mod shared_memory_ipc;
 mod simd;
+mod simd_json;
 mod snapshot;
+mod static_plugins;
+mod strategy;
 mod syscall;
 mod tracer;
 mod treeshake;
+mod unified_gateway;
 mod visualizer;
 mod watcher;
-mod ringbuffer;
-mod strategy;
-mod distributed_cache;
-mod analyzer;
 mod xdp_middleware;
-mod shared_memory_ipc;
 mod zero_copy_serde;
-mod request_coalescing;
-mod adaptive_engine;
-mod unified_gateway;
-mod simd_json;
-mod memory_pool;
-mod maglev;
-mod io_uring;
-mod cpu_cache;
-mod hardware_tuning;
-mod bpf_verifier;
-mod pcie_bottleneck;
-mod hedging;
-mod mmap_ipc;
-mod static_plugins;
-mod cli;
-mod output;
-mod ai_context;
 
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
@@ -79,6 +79,7 @@ use std::time::Instant;
         \n\nLegacy flat commands (e.g., 'jatin-lean health .') still work but show deprecation warnings.\
         \nAll commands support --json and --json-pretty for machine-readable output."
 )]
+
 struct Cli {
     /// Output results as JSON (machine-readable)
     #[arg(long, global = true)]
@@ -111,6 +112,10 @@ struct Cli {
     /// Show individual files that would be deleted
     #[arg(long, short = 'v')]
     verbose: bool,
+
+    /// Keep license files even when pruning documentation
+    #[arg(long)]
+    keep_license: bool,
 
     /// Maximum depth for global scan
     #[arg(long, default_value = "4")]
@@ -188,17 +193,17 @@ enum Commands {
 }
 
 fn main() -> Result<()> {
-    let cli = Cli::parse();
+    let args = Cli::parse();
 
     // Build output context from global flags
     let ctx = output::OutputContext {
-        json: cli.json || cli.json_pretty,
-        pretty: cli.json_pretty,
-        verbose: cli.verbose,
+        json: args.json || args.json_pretty,
+        pretty: args.json_pretty,
+        verbose: args.verbose,
     };
 
     // Handle --init-config flag
-    if let Some(config_path) = cli.init_config {
+    if let Some(config_path) = args.init_config {
         config::Config::create_example(&config_path)?;
         if !ctx.json {
             println!(
@@ -221,28 +226,31 @@ fn main() -> Result<()> {
     }
 
     // Handle subcommands
-    if let Some(command) = cli.command {
+    if let Some(command) = args.command {
         return handle_subcommand(command, &ctx);
     }
 
     // Default: run node_modules scan (backward compatible)
-    if !ctx.json { display::print_banner(); }
+    if !ctx.json {
+        display::print_banner();
+    }
 
-    let target = std::fs::canonicalize(&cli.path)
-        .with_context(|| format!("Cannot access path: {}", cli.path.display()))?;
+    let target = std::fs::canonicalize(&args.path)
+        .with_context(|| format!("Cannot access path: {}", args.path.display()))?;
 
-    if cli.global {
-        run_global_mode(&target, cli.max_depth)?;
+    if args.global {
+        run_global_mode(&target, args.max_depth)?;
     } else {
         run_local_mode(
             &target,
-            cli.force,
-            cli.yes,
-            cli.verbose,
-            cli.config.as_deref(),
-            cli.profile,
-            cli.snapshot,
-            cli.export.as_deref(),
+            args.force,
+            args.yes,
+            args.verbose,
+            args.config.as_deref(),
+            args.keep_license,
+            args.profile,
+            args.snapshot,
+            args.export.as_deref(),
         )?;
     }
 
@@ -265,18 +273,29 @@ fn handle_subcommand(command: Commands, ctx: &output::OutputContext) -> Result<(
 }
 
 /// Wrapper for the CLI node scan command to call the internal runner
-pub fn run_local_mode_from_cli(
+pub fn run_local_mode_from_args(
     path: &std::path::PathBuf,
     force: bool,
     yes: bool,
     verbose: bool,
+    keep_license: bool,
     profile: bool,
     snapshot: bool,
     export: Option<&std::path::Path>,
     _ctx: &output::OutputContext,
 ) -> Result<()> {
     let target = std::fs::canonicalize(path)?;
-    run_local_mode(&target, force, yes, verbose, None, profile, snapshot, export)
+    run_local_mode(
+        &target,
+        force,
+        yes,
+        verbose,
+        None,
+        keep_license,
+        profile,
+        snapshot,
+        export,
+    )
 }
 
 /// Run in local mode — scan a single project's node_modules.
@@ -286,6 +305,7 @@ fn run_local_mode(
     yes: bool,
     verbose: bool,
     config_path: Option<&Path>,
+    keep_license: bool,
     profile: bool,
     create_snapshot: bool,
     export_path: Option<&Path>,
@@ -321,7 +341,13 @@ fn run_local_mode(
 
     // Load configuration
     profiler.start_span("Config Loading");
-    let config = config::Config::load(config_path, project_path)?;
+    let mut config = config::Config::load(config_path, project_path)?;
+
+    // Apply --keep-license flag to config
+    if let Some(ref mut cfg) = config {
+        cfg.keep_license = keep_license;
+    }
+
     if let Some(ref _cfg) = config {
         let source = if config_path.is_some() {
             "custom config"
@@ -342,8 +368,8 @@ fn run_local_mode(
     // Phase 1: Discovery
     profiler.start_span("Discovery (Scan)");
     let rules = rules::PruneRules::new_with_config(config);
-    let scan_result =
-        scanner::scan_node_modules(&nm_path, &rules, None).context("Failed to scan node_modules")?;
+    let scan_result = scanner::scan_node_modules(&nm_path, &rules, None)
+        .context("Failed to scan node_modules")?;
     profiler.end_span(scan_result.total_files);
 
     display::print_discovery(&scan_result);

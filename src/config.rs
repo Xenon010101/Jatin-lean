@@ -13,6 +13,9 @@ pub struct Config {
     /// Whether to completely override default rules instead of merging
     #[serde(default)]
     pub override_defaults: bool,
+    /// If true, license files (LICENSE, LICENCE, etc.) are never deleted
+    #[serde(default)]
+    pub keep_license: bool,
 
     /// Documentation file patterns
     #[serde(default)]
@@ -71,7 +74,6 @@ pub struct Config {
     pub include_patterns: Vec<String>,
 
     // === Performance & Cache Settings (Steps 11, 12, 15) ===
-
     /// Enable the incremental scan cache
     #[serde(default = "default_true")]
     pub cache_enabled: bool,
@@ -89,7 +91,6 @@ pub struct Config {
     pub mmap_cache: bool,
 
     // === Strategy Settings (Step 15) ===
-
     /// Fast-path threshold: max file count for fast-path scanning
     #[serde(default = "default_fast_path_files")]
     pub fast_path_max_files: i64,
@@ -107,7 +108,6 @@ pub struct Config {
     pub skip_packages: Vec<String>,
 
     // === Profiling Settings (Step 15) ===
-
     /// Enable performance profiling by default
     #[serde(default)]
     pub profiling_enabled: bool,
@@ -117,7 +117,6 @@ pub struct Config {
     pub show_package_timings: bool,
 
     // === Distributed Cache Settings (Step 15) ===
-
     /// Enable distributed caching
     #[serde(default)]
     pub distributed_cache_enabled: bool,
@@ -131,16 +130,29 @@ pub struct Config {
     pub distributed_cache_timeout_ms: u64,
 }
 
-fn default_true() -> bool { true }
-fn default_cache_ttl() -> u64 { 86400 }
-fn default_cache_max_mb() -> u64 { 100 }
-fn default_fast_path_files() -> i64 { 20 }
-fn default_fast_path_size_kb() -> u64 { 100 }
-fn default_dist_cache_timeout() -> u64 { 5000 }
+fn default_true() -> bool {
+    true
+}
+fn default_cache_ttl() -> u64 {
+    86400
+}
+fn default_cache_max_mb() -> u64 {
+    100
+}
+fn default_fast_path_files() -> i64 {
+    20
+}
+fn default_fast_path_size_kb() -> u64 {
+    100
+}
+fn default_dist_cache_timeout() -> u64 {
+    5000
+}
 
 impl Default for Config {
     fn default() -> Self {
         Self {
+            keep_license: false,
             override_defaults: false,
             doc_files: vec![],
             doc_dirs: vec![],
@@ -256,6 +268,8 @@ impl Config {
 # If true, ignores all built-in rules and only uses the ones defined here.
 # If false, these rules are added to the built-in defaults.
 override_defaults = false
+# Keep license files (LICENSE, LICENCE, etc.) even when pruning documentation
+keep_license = false
 
 # Documentation files (exact filenames)
 doc_files = [

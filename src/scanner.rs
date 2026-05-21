@@ -122,7 +122,7 @@ pub fn scan_node_modules(
     profiler: Option<&mut Profiler>,
 ) -> Result<ScanResult> {
     let scan_start = Instant::now();
-    
+
     let total_files = AtomicU64::new(0);
     let total_size = AtomicU64::new(0);
     let whitelisted = AtomicU64::new(0);
@@ -180,7 +180,7 @@ pub fn scan_node_modules(
     let parsing_start = Instant::now();
     let whitelisted_files: Arc<Mutex<std::collections::HashSet<PathBuf>>> =
         Arc::new(Mutex::new(std::collections::HashSet::new()));
-    
+
     // Store per-package timings
     let package_timings: Arc<Mutex<Vec<PackageTiming>>> = Arc::new(Mutex::new(Vec::new()));
 
@@ -207,7 +207,7 @@ pub fn scan_node_modules(
         let mut pkg_file_count = 0;
         let mut pkg_total_size = 0;
         let mut pkg_candidates = 0;
-        
+
         let walker = WalkBuilder::new(pkg_path)
             .hidden(false)
             .git_ignore(false)
@@ -258,7 +258,7 @@ pub fn scan_node_modules(
                 }
             }
         }
-        
+
         // Record package timing
         let pkg_duration = pkg_start.elapsed();
         let timing = PackageTiming {
@@ -271,7 +271,7 @@ pub fn scan_node_modules(
         };
         package_timings.lock().unwrap().push(timing);
     });
-    
+
     let parsing_duration = parsing_start.elapsed();
 
     pb.finish_and_clear();
@@ -281,12 +281,12 @@ pub fn scan_node_modules(
         .context("Failed to collect candidates")?
         .into_inner()
         .map_err(|e| anyhow::anyhow!("Mutex poisoned: {}", e))?;
-    
+
     // Record metrics in profiler
     if let Some(prof) = profiler {
         prof.record_discovery(discovery_duration);
         prof.record_parsing(parsing_duration);
-        
+
         // Add all package timings
         if let Ok(timings_mutex) = Arc::try_unwrap(package_timings) {
             let timings = timings_mutex.into_inner().unwrap_or_default();

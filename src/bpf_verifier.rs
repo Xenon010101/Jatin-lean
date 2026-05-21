@@ -31,9 +31,12 @@ pub enum BpfProgType {
 impl BpfProgType {
     pub fn label(&self) -> &'static str {
         match self {
-            Self::XdpIngress => "XDP (Ingress)", Self::TcIngress => "TC (Ingress)",
-            Self::TcEgress => "TC (Egress)", Self::CgroupSkb => "Cgroup SKB",
-            Self::SocketFilter => "Socket Filter", Self::Tracepoint => "Tracepoint",
+            Self::XdpIngress => "XDP (Ingress)",
+            Self::TcIngress => "TC (Ingress)",
+            Self::TcEgress => "TC (Egress)",
+            Self::CgroupSkb => "Cgroup SKB",
+            Self::SocketFilter => "Socket Filter",
+            Self::Tracepoint => "Tracepoint",
         }
     }
 }
@@ -70,26 +73,39 @@ impl BpfProgram {
         if self.instruction_count > BPF_MAX_INSNS {
             return VerifierResult {
                 accepted: false,
-                reason: format!("Program exceeds {} instruction limit ({} insns)",
-                    BPF_MAX_INSNS, self.instruction_count),
+                reason: format!(
+                    "Program exceeds {} instruction limit ({} insns)",
+                    BPF_MAX_INSNS, self.instruction_count
+                ),
                 insn_utilization: self.instruction_count as f64 / BPF_MAX_INSNS as f64 * 100.0,
-                complexity_score: 100, warnings,
+                complexity_score: 100,
+                warnings,
             };
         }
 
         if self.call_depth > BPF_MAX_CALL_DEPTH {
             return VerifierResult {
                 accepted: false,
-                reason: format!("Call depth {} exceeds max {}", self.call_depth, BPF_MAX_CALL_DEPTH),
-                insn_utilization: 0.0, complexity_score: 100, warnings,
+                reason: format!(
+                    "Call depth {} exceeds max {}",
+                    self.call_depth, BPF_MAX_CALL_DEPTH
+                ),
+                insn_utilization: 0.0,
+                complexity_score: 100,
+                warnings,
             };
         }
 
         if self.max_loop_depth > BPF_MAX_LOOP_ITERATIONS {
             return VerifierResult {
                 accepted: false,
-                reason: format!("Unbounded loop detected ({} iterations)", self.max_loop_depth),
-                insn_utilization: 0.0, complexity_score: 100, warnings,
+                reason: format!(
+                    "Unbounded loop detected ({} iterations)",
+                    self.max_loop_depth
+                ),
+                insn_utilization: 0.0,
+                complexity_score: 100,
+                warnings,
             };
         }
 
@@ -108,7 +124,8 @@ impl BpfProgram {
             accepted: true,
             reason: "Program accepted by BPF verifier".into(),
             insn_utilization: self.instruction_count as f64 / BPF_MAX_INSNS as f64 * 100.0,
-            complexity_score: complexity, warnings,
+            complexity_score: complexity,
+            warnings,
         }
     }
 }
@@ -135,15 +152,19 @@ pub enum DpiEvasion {
 impl DpiEvasion {
     pub fn overhead_bytes(&self) -> usize {
         match self {
-            Self::None => 0, Self::UdpToTcpRewrite => 12,
-            Self::TlsRecordMimicry => 37, Self::HttpChunkedInject => 64,
-            Self::DohTunnel => 48, Self::QuicCamouflage => 28,
+            Self::None => 0,
+            Self::UdpToTcpRewrite => 12,
+            Self::TlsRecordMimicry => 37,
+            Self::HttpChunkedInject => 64,
+            Self::DohTunnel => 48,
+            Self::QuicCamouflage => 28,
         }
     }
 
     pub fn label(&self) -> &'static str {
         match self {
-            Self::None => "None", Self::UdpToTcpRewrite => "UDP→TCP Rewrite",
+            Self::None => "None",
+            Self::UdpToTcpRewrite => "UDP→TCP Rewrite",
             Self::TlsRecordMimicry => "TLS 1.3 Mimicry",
             Self::HttpChunkedInject => "HTTP Chunked Inject",
             Self::DohTunnel => "DNS-over-HTTPS Tunnel",
@@ -152,8 +173,14 @@ impl DpiEvasion {
     }
 
     pub fn all() -> &'static [DpiEvasion] {
-        &[Self::None, Self::UdpToTcpRewrite, Self::TlsRecordMimicry,
-          Self::HttpChunkedInject, Self::DohTunnel, Self::QuicCamouflage]
+        &[
+            Self::None,
+            Self::UdpToTcpRewrite,
+            Self::TlsRecordMimicry,
+            Self::HttpChunkedInject,
+            Self::DohTunnel,
+            Self::QuicCamouflage,
+        ]
     }
 
     /// Can this evasion bypass the given DPI method?
@@ -199,8 +226,8 @@ pub struct SkbuffModel {
 impl Default for SkbuffModel {
     fn default() -> Self {
         Self {
-            skb_size: 256,          // sizeof(sk_buff) on Linux 6.x
-            alloc_cost_ns: 80.0,    // SLAB allocator overhead
+            skb_size: 256,       // sizeof(sk_buff) on Linux 6.x
+            alloc_cost_ns: 80.0, // SLAB allocator overhead
             free_cost_ns: 60.0,
             cache_pollution_bytes: 320, // sk_buff + data pointers
         }
@@ -219,7 +246,9 @@ impl SkbuffModel {
             total_ns_saved: alloc_ns_saved + free_ns_saved,
             memory_bytes_saved: memory_saved,
             cache_bytes_saved: cache_saved,
-            equivalent_throughput_gain_pct: (alloc_ns_saved + free_ns_saved) / (packet_count as f64 * 500.0) * 100.0,
+            equivalent_throughput_gain_pct: (alloc_ns_saved + free_ns_saved)
+                / (packet_count as f64 * 500.0)
+                * 100.0,
         }
     }
 }
@@ -235,17 +264,43 @@ pub struct SkbuffSavings {
 pub fn print_verifier_report(prog: &BpfProgram, result: &VerifierResult) {
     use console::style;
     println!();
-    println!("  {} {}", style("BPF Verifier Report").cyan().bold(),
-        style("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━").dim());
-    let status = if result.accepted { style("ACCEPTED ✓").green().bold() } else { style("REJECTED ✗").red().bold() };
-    println!("  {} Program '{}' [{}]: {}", style("▸").dim(),
-        style(&prog.name).yellow(), prog.prog_type.label(), status);
-    println!("  {} Instructions: {}/{} ({:.1}% budget)",
-        style("▸").dim(), prog.instruction_count, BPF_MAX_INSNS, result.insn_utilization);
-    println!("  {} Call depth: {}/{} | Maps: {} | Tail calls: {}",
-        style("▸").dim(), prog.call_depth, BPF_MAX_CALL_DEPTH,
-        prog.map_accesses, prog.tail_calls);
-    println!("  {} Complexity score: {}/100", style("▸").dim(), result.complexity_score);
+    println!(
+        "  {} {}",
+        style("BPF Verifier Report").cyan().bold(),
+        style("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━").dim()
+    );
+    let status = if result.accepted {
+        style("ACCEPTED ✓").green().bold()
+    } else {
+        style("REJECTED ✗").red().bold()
+    };
+    println!(
+        "  {} Program '{}' [{}]: {}",
+        style("▸").dim(),
+        style(&prog.name).yellow(),
+        prog.prog_type.label(),
+        status
+    );
+    println!(
+        "  {} Instructions: {}/{} ({:.1}% budget)",
+        style("▸").dim(),
+        prog.instruction_count,
+        BPF_MAX_INSNS,
+        result.insn_utilization
+    );
+    println!(
+        "  {} Call depth: {}/{} | Maps: {} | Tail calls: {}",
+        style("▸").dim(),
+        prog.call_depth,
+        BPF_MAX_CALL_DEPTH,
+        prog.map_accesses,
+        prog.tail_calls
+    );
+    println!(
+        "  {} Complexity score: {}/100",
+        style("▸").dim(),
+        result.complexity_score
+    );
     if !result.warnings.is_empty() {
         for w in &result.warnings {
             println!("  {} {}", style("⚠").yellow(), w);
@@ -262,9 +317,14 @@ mod tests {
     #[test]
     fn test_verifier_accept() {
         let prog = BpfProgram {
-            name: "xdp_pass".into(), prog_type: BpfProgType::XdpIngress,
-            instruction_count: 500, max_loop_depth: 100, call_depth: 2,
-            map_accesses: 5, packet_accesses: 10, tail_calls: 0,
+            name: "xdp_pass".into(),
+            prog_type: BpfProgType::XdpIngress,
+            instruction_count: 500,
+            max_loop_depth: 100,
+            call_depth: 2,
+            map_accesses: 5,
+            packet_accesses: 10,
+            tail_calls: 0,
             helper_calls: vec!["bpf_xdp_adjust_head".into()],
         };
         assert!(prog.verify().accepted);
@@ -273,10 +333,15 @@ mod tests {
     #[test]
     fn test_verifier_reject_insns() {
         let prog = BpfProgram {
-            name: "too_big".into(), prog_type: BpfProgType::XdpIngress,
-            instruction_count: BPF_MAX_INSNS + 1, max_loop_depth: 0,
-            call_depth: 0, map_accesses: 0, packet_accesses: 0,
-            tail_calls: 0, helper_calls: vec![],
+            name: "too_big".into(),
+            prog_type: BpfProgType::XdpIngress,
+            instruction_count: BPF_MAX_INSNS + 1,
+            max_loop_depth: 0,
+            call_depth: 0,
+            map_accesses: 0,
+            packet_accesses: 0,
+            tail_calls: 0,
+            helper_calls: vec![],
         };
         assert!(!prog.verify().accepted);
     }

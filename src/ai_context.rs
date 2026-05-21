@@ -3,11 +3,11 @@
 //! Provides the `ai-context` command that outputs structured information
 //! about the tool's capabilities, the current project, and the system.
 
+use crate::output::OutputContext;
+use anyhow::Result;
+use console::style;
 use serde::Serialize;
 use std::path::PathBuf;
-use anyhow::Result;
-use crate::output::OutputContext;
-use console::style;
 
 #[derive(Serialize)]
 pub struct AiContext {
@@ -62,7 +62,9 @@ pub fn handle_ai_context(path: PathBuf, ctx: &OutputContext) -> Result<()> {
             node_modules_size_bytes: scan_result.total_size,
             node_modules_packages: scan_result.total_packages as usize,
             potential_savings_bytes: scan_result.savings(),
-            frameworks_detected: analysis.package_analyses.iter()
+            frameworks_detected: analysis
+                .package_analyses
+                .iter()
                 .flat_map(|a| a.frameworks.iter().map(|f| f.label().to_string()))
                 .collect::<std::collections::HashSet<_>>()
                 .into_iter()
@@ -108,11 +110,17 @@ pub fn handle_ai_context(path: PathBuf, ctx: &OutputContext) -> Result<()> {
     } else {
         // Human-readable output
         println!();
-        println!("  {} {}", style("AI Context").cyan().bold(),
-            style("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━").dim());
-        println!("  {} Tool: {} v{}", style("◉").cyan(),
+        println!(
+            "  {} {}",
+            style("AI Context").cyan().bold(),
+            style("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━").dim()
+        );
+        println!(
+            "  {} Tool: {} v{}",
+            style("◉").cyan(),
             style(&ai_context.tool).white().bold(),
-            style(&ai_context.version).green());
+            style(&ai_context.version).green()
+        );
         println!();
         println!("  {} Capabilities:", style("🎯").yellow());
         for cap in &ai_context.capabilities {
@@ -120,34 +128,72 @@ pub fn handle_ai_context(path: PathBuf, ctx: &OutputContext) -> Result<()> {
         }
         println!();
         println!("  {} Quick Commands:", style("⚡").yellow());
-        println!("    {} {}", style("→").dim(), style(&ai_context.quick_commands.scan_node_modules).green());
-        println!("    {} {}", style("→").dim(), style(&ai_context.quick_commands.prune_node_modules).green());
-        println!("    {} {}", style("→").dim(), style(&ai_context.quick_commands.system_assessment).green());
-        println!("    {} {}", style("→").dim(), style(&ai_context.quick_commands.network_benchmark).green());
-        println!("    {} {}", style("→").dim(), style(&ai_context.quick_commands.memory_benchmark).green());
+        println!(
+            "    {} {}",
+            style("→").dim(),
+            style(&ai_context.quick_commands.scan_node_modules).green()
+        );
+        println!(
+            "    {} {}",
+            style("→").dim(),
+            style(&ai_context.quick_commands.prune_node_modules).green()
+        );
+        println!(
+            "    {} {}",
+            style("→").dim(),
+            style(&ai_context.quick_commands.system_assessment).green()
+        );
+        println!(
+            "    {} {}",
+            style("→").dim(),
+            style(&ai_context.quick_commands.network_benchmark).green()
+        );
+        println!(
+            "    {} {}",
+            style("→").dim(),
+            style(&ai_context.quick_commands.memory_benchmark).green()
+        );
         println!();
         if let Some(ref pc) = ai_context.project_context {
             println!("  {} Project:", style("📦").yellow());
-            println!("    node_modules: {} ({} packages)",
-                style(crate::scanner::format_size(pc.node_modules_size_bytes)).white().bold(),
-                pc.node_modules_packages);
-            println!("    Savings:      {}", style(crate::scanner::format_size(pc.potential_savings_bytes)).green());
-            println!("    Frameworks:   {}", style(pc.frameworks_detected.join(", ")).cyan());
+            println!(
+                "    node_modules: {} ({} packages)",
+                style(crate::scanner::format_size(pc.node_modules_size_bytes))
+                    .white()
+                    .bold(),
+                pc.node_modules_packages
+            );
+            println!(
+                "    Savings:      {}",
+                style(crate::scanner::format_size(pc.potential_savings_bytes)).green()
+            );
+            println!(
+                "    Frameworks:   {}",
+                style(pc.frameworks_detected.join(", ")).cyan()
+            );
             println!("    Pkg manager:  {}", style(&pc.package_manager).white());
             println!();
         } else {
-            println!("  {} No node_modules found at current path", style("ℹ").blue());
+            println!(
+                "  {} No node_modules found at current path",
+                style("ℹ").blue()
+            );
             println!();
         }
-        println!("  {} System: {} / {} / {} cores / SIMD: {}",
+        println!(
+            "  {} System: {} / {} / {} cores / SIMD: {}",
             style("🖥️").yellow(),
             style(&ai_context.system_context.os).white(),
             style(&ai_context.system_context.arch).white(),
             ai_context.system_context.cpu_cores,
-            style(&ai_context.system_context.simd_tier).green());
+            style(&ai_context.system_context.simd_tier).green()
+        );
         println!();
-        println!("  {} For JSON output, use: {}",
-            style("→").dim(), style("jatin-lean ai-context --json").yellow());
+        println!(
+            "  {} For JSON output, use: {}",
+            style("→").dim(),
+            style("jatin-lean ai-context --json").yellow()
+        );
         println!();
     }
 
