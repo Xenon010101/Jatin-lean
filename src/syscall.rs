@@ -733,6 +733,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(unix)]
     fn test_fs_info() -> Result<()> {
         let info = FsInfo::query(Path::new("/tmp"))?;
         assert!(info.total_space > 0);
