@@ -363,7 +363,7 @@ fn classify_package_type(
         return PackageType::TypeDefinition;
     }
 
-    if has_bin && !json.get("main").is_some() {
+    if has_bin && json.get("main").is_none() {
         return PackageType::CliTool;
     }
 

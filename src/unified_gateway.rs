@@ -5,7 +5,6 @@
 //! 1. Ingestion (XDP) → 2. Deserialization (rkyv) → 3. Deduplication (Coalescing)
 //! → 4. Cross-Boundary IPC → 5. Adaptive Execution → 6. Response & Cache
 
-use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, Instant};
 
@@ -178,6 +177,12 @@ pub struct GatewayStats {
     pub total_bytes_out: AtomicU64,
 }
 
+impl Default for GatewayStats {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl GatewayStats {
     pub fn new() -> Self {
         Self {
@@ -187,6 +192,12 @@ impl GatewayStats {
             total_bytes_in: AtomicU64::new(0),
             total_bytes_out: AtomicU64::new(0),
         }
+    }
+}
+
+impl Default for UnifiedGateway {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -287,7 +298,7 @@ impl UnifiedGateway {
     fn stage_dedup(&self, req: &PipelineRequest) -> bool {
         // Simulate singleflight check
         // In production: check if req.resource_key is already in-flight
-        req.id % 10 == 0 // Simulate 10% coalescing
+        req.id.is_multiple_of(10) // Simulate 10% coalescing
     }
 
     fn stage_ipc(&self, _req: &PipelineRequest) {

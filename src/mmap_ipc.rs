@@ -4,7 +4,7 @@
 //! for Node.js→Rust IPC, with Rayon parallel batch processing,
 //! V8 FFI bridge model, and false-sharing-free cache-line-padded indices.
 
-use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, Instant};
 
 /// Cache line size (64 bytes on x86-64).
@@ -67,6 +67,12 @@ pub struct MmapRingStats {
     pub full_events: AtomicU64,
     pub empty_events: AtomicU64,
     pub batch_processes: AtomicU64,
+}
+
+impl Default for MmapRingStats {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl MmapRingStats {

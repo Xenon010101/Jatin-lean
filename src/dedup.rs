@@ -210,7 +210,7 @@ fn scan_package_files(
         .build();
 
     for entry in walker.flatten() {
-        if !entry.file_type().map_or(false, |ft| ft.is_file()) {
+        if !entry.file_type().is_some_and(|ft| ft.is_file()) {
             continue;
         }
 
@@ -228,7 +228,7 @@ fn scan_package_files(
         }
 
         *total_files += 1;
-        if *total_files % 1000 == 0 {
+        if (*total_files).is_multiple_of(1000) {
             pb.set_message(format!(
                 "Scanning... {} files hashed",
                 format_number(*total_files)

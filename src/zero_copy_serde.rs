@@ -7,8 +7,7 @@
 
 use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 use serde::{Deserialize as SerdeDeserialize, Serialize as SerdeSerialize};
-use std::collections::HashMap;
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
 // ─── Serialization Framework Comparison ──────────────────────────────────────
 
@@ -289,6 +288,12 @@ impl SerdeStats {
             return 0.0;
         }
         json_avg / rkyv_avg
+    }
+}
+
+impl Default for ZeroCopyEngine {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

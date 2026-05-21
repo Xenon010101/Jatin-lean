@@ -7,9 +7,6 @@
 //! - CPU governor and frequency scaling control
 //! - Interrupt affinity (IRQ pinning) for NIC queues
 
-use std::collections::HashMap;
-use std::sync::atomic::{AtomicU64, Ordering};
-use std::time::{Duration, Instant};
 
 // ─── NUMA Topology ───────────────────────────────────────────────────────────
 

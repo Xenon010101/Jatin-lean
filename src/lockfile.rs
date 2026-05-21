@@ -179,7 +179,7 @@ impl DependencyGraph {
         // Parse v3 format (packages field)
         if let Some(packages) = &lockfile.packages {
             for (key, entry) in packages {
-                if key.is_empty() || key == "" {
+                if key.is_empty() || key.is_empty() {
                     continue; // Skip root package
                 }
 
@@ -413,9 +413,8 @@ fn parse_yarn_package_name(line: &str) -> Option<String> {
     let first_spec = cleaned.split(',').next()?.trim().trim_matches('"');
 
     // Split on '@' but handle scoped packages (@scope/name@version)
-    if first_spec.starts_with('@') {
+    if let Some(without_at) = first_spec.strip_prefix('@') {
         // Scoped package: @scope/name@version
-        let without_at = &first_spec[1..];
         if let Some(at_pos) = without_at.find('@') {
             Some(format!("@{}", &without_at[..at_pos]))
         } else {

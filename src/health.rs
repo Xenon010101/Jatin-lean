@@ -421,7 +421,7 @@ fn analyze_single_package(
     pb: &indicatif::ProgressBar,
 ) -> Result<()> {
     *packages_analyzed += 1;
-    if *packages_analyzed % 100 == 0 {
+    if (*packages_analyzed).is_multiple_of(100) {
         pb.set_message(format!(
             "Analyzing... {} packages",
             format_number(*packages_analyzed)
@@ -531,7 +531,6 @@ fn dir_size(path: &Path) -> u64 {
         .hidden(false)
         .git_ignore(false)
         .build()
-        .into_iter()
         .try_fold(0u64, |acc, entry| {
             entry.map(|e| acc + e.metadata().map(|m| m.len()).unwrap_or(0))
         })

@@ -4,7 +4,6 @@
 //! bottlenecks and optimization opportunities.
 
 use std::collections::HashMap;
-use std::path::PathBuf;
 use std::time::{Duration, Instant};
 
 /// Performance metrics for a complete scan operation
@@ -417,7 +416,7 @@ pub fn print_performance_summary(metrics: &PerformanceMetrics) {
             style("━━━━━━━━━━━━━━━━━━━━━━━━━━━").dim()
         );
 
-        for (_i, bottleneck) in metrics.bottlenecks.iter().take(5).enumerate() {
+        for bottleneck in metrics.bottlenecks.iter().take(5) {
             let severity_icon = match bottleneck.severity {
                 1..=3 => "🟢",
                 4..=6 => "🟡",

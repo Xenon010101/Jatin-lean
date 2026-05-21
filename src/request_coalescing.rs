@@ -7,8 +7,8 @@
 
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::{Arc, Mutex, RwLock};
-use std::time::{Duration, Instant, SystemTime};
+use std::sync::{Mutex, RwLock};
+use std::time::{Duration, Instant};
 
 // ─── Cache Stampede Prevention ───────────────────────────────────────────────
 
@@ -66,6 +66,12 @@ pub struct CoalescingStats {
     pub backend_calls_saved: AtomicU64,
 }
 
+impl Default for CoalescingStats {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CoalescingStats {
     pub fn new() -> Self {
         Self {
@@ -96,6 +102,12 @@ impl CoalescingStats {
         }
         let saved = self.backend_calls_saved.load(Ordering::Relaxed);
         saved as f64 / total as f64 * 100.0
+    }
+}
+
+impl<T: Clone> Default for SingleflightGroup<T> {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -401,6 +413,12 @@ pub struct CacheLayerStats {
     pub partial_hits: AtomicU64,
     pub evictions: AtomicU64,
     pub stored_fields: AtomicU64,
+}
+
+impl Default for CacheLayerStats {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl CacheLayerStats {

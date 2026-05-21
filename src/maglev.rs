@@ -6,7 +6,6 @@
 //! Table generation is O(M*N) where M = table size, N = backends.
 
 use std::collections::HashMap;
-use std::hash::{Hash, Hasher};
 use std::time::Instant;
 
 /// Default Maglev table size (must be prime for uniform distribution).

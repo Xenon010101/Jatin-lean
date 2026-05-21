@@ -28,6 +28,7 @@ pub struct Policy {
 
 /// Collection of policy rules.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default)]
 pub struct PolicyRules {
     /// Maximum total size of node_modules (bytes)
     #[serde(default)]
@@ -67,24 +68,6 @@ pub struct PolicyRules {
     pub violation_message: Option<String>,
 }
 
-impl Default for PolicyRules {
-    fn default() -> Self {
-        Self {
-            max_total_size: None,
-            max_package_size: None,
-            max_dependency_count: None,
-            max_nesting_depth: None,
-            banned_packages: Vec::new(),
-            allowed_licenses: Vec::new(),
-            banned_licenses: Vec::new(),
-            required_packages: Vec::new(),
-            ban_install_scripts: false,
-            max_package_age_days: None,
-            require_side_effect_free: false,
-            violation_message: None,
-        }
-    }
-}
 
 /// A policy violation found during enforcement.
 #[derive(Debug, Clone)]

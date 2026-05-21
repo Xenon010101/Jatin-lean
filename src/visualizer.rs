@@ -147,7 +147,7 @@ pub fn render_bar_chart(title: &str, entries: &[BarChartEntry], max_width: usize
 
     for entry in entries {
         let filled = ((entry.value / max_val) * bar_width as f64) as usize;
-        let filled = filled.max(0).min(bar_width);
+        let filled = filled.min(bar_width);
 
         let bar = format!("{}{}", "█".repeat(filled), "░".repeat(bar_width - filled));
 
@@ -416,6 +416,12 @@ pub struct Dashboard {
     candidate_bytes: u64,
     packages_scanned: u64,
     current_package: String,
+}
+
+impl Default for Dashboard {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl Dashboard {

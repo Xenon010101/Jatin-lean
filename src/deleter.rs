@@ -42,7 +42,7 @@ pub fn execute_deletion(candidates: &[PruneCandidate]) -> Result<DeletionResult>
     let mut deleted_size: u64 = 0;
     let mut failures: Vec<(PathBuf, String)> = Vec::new();
 
-    for (_pkg, files) in &by_package {
+    for files in by_package.values() {
         for candidate in files {
             match fs::remove_file(&candidate.path) {
                 Ok(()) => {

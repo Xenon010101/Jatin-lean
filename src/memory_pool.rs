@@ -7,7 +7,6 @@
 
 use std::cell::UnsafeCell;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::time::Instant;
 
 /// Cache-line size for alignment.
 const CACHE_LINE: usize = 64;
@@ -35,6 +34,12 @@ pub struct ArenaStats {
     pub bytes_allocated: AtomicUsize,
     pub bytes_wasted: AtomicUsize, // alignment padding
     pub peak_usage: AtomicUsize,
+}
+
+impl Default for ArenaStats {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl ArenaStats {
@@ -267,6 +272,7 @@ impl<T: Clone + Default> PromotableArena<T> {
 
 /// A fixed-size scan entry that can be allocated from a TypedPool.
 #[derive(Debug, Clone, Copy)]
+#[derive(Default)]
 pub struct ScanEntry {
     /// Path hash (FNV-1a) instead of String to avoid heap allocation
     pub path_hash: u64,
@@ -281,18 +287,6 @@ pub struct ScanEntry {
     _pad: [u8; 5],
 }
 
-impl Default for ScanEntry {
-    fn default() -> Self {
-        Self {
-            path_hash: 0,
-            size: 0,
-            is_candidate: false,
-            category: 0,
-            depth: 0,
-            _pad: [0; 5],
-        }
-    }
-}
 
 impl ScanEntry {
     /// FNV-1a hash of a path string.

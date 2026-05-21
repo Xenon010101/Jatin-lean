@@ -7,7 +7,7 @@
 //! in a single batch, kernel processes them asynchronously.
 
 use std::collections::VecDeque;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, Instant};
 
@@ -170,6 +170,12 @@ pub struct IoUringStats {
     pub total_complete_ns: AtomicU64,
     pub syscalls_saved: AtomicU64,
     pub bytes_processed: AtomicU64,
+}
+
+impl Default for IoUringStats {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl IoUringStats {

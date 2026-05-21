@@ -193,7 +193,7 @@ pub fn analyze_compression(node_modules_path: &Path) -> Result<CompressionResult
         .build();
 
     for entry in walker.flatten() {
-        if !entry.file_type().map_or(false, |ft| ft.is_file()) {
+        if !entry.file_type().is_some_and(|ft| ft.is_file()) {
             continue;
         }
 
@@ -215,7 +215,7 @@ pub fn analyze_compression(node_modules_path: &Path) -> Result<CompressionResult
         }
 
         files_analyzed += 1;
-        if files_analyzed % 500 == 0 {
+        if files_analyzed.is_multiple_of(500) {
             pb.set_message(format!(
                 "Analyzed {} files...",
                 format_number(files_analyzed)

@@ -7,7 +7,7 @@ use crate::output::OutputContext;
 use anyhow::Result;
 use console::style;
 use serde::Serialize;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 #[derive(Serialize)]
 pub struct AiContext {
@@ -200,7 +200,7 @@ pub fn handle_ai_context(path: PathBuf, ctx: &OutputContext) -> Result<()> {
     Ok(())
 }
 
-fn detect_package_manager(path: &PathBuf) -> String {
+fn detect_package_manager(path: &Path) -> String {
     if path.join("package-lock.json").exists() {
         "npm".to_string()
     } else if path.join("yarn.lock").exists() {

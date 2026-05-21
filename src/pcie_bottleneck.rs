@@ -4,7 +4,6 @@
 //! paradigms (pageable, pinned, unified, HW-coherent), prefetch
 //! scheduling, and VRAM layer offloading for LLM inference.
 
-use std::time::{Duration, Instant};
 
 // ─── PCIe Specifications ─────────────────────────────────────────────────────
 

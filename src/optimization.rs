@@ -118,11 +118,10 @@ impl Optimization {
                     return Err(anyhow!("Kernel parameter '{}' not found", key));
                 }
                 // Validate value is numeric for numeric parameters
-                if key.contains("max") || key.contains("size") || key.contains("timeout") {
-                    if value.parse::<i64>().is_err() {
+                if (key.contains("max") || key.contains("size") || key.contains("timeout"))
+                    && value.parse::<i64>().is_err() {
                         return Err(anyhow!("Invalid numeric value for {}: {}", key, value));
                     }
-                }
                 Ok(())
             }
             Optimization::IoScheduler(device, scheduler) => {

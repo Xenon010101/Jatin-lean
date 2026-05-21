@@ -1,7 +1,7 @@
 //! System optimization application module
 //! Actually applies hardware optimizations instead of just showing recommendations
 
-use anyhow::{anyhow, Context, Result};
+use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
@@ -180,7 +180,7 @@ pub fn apply_cpu_governor(governor: &str) -> Result<()> {
 
     // Try cpupower first
     let result = Command::new("cpupower")
-        .args(&["frequency-set", "-g", governor])
+        .args(["frequency-set", "-g", governor])
         .status();
 
     if result.is_ok() && result.unwrap().success() {
@@ -484,7 +484,7 @@ pub fn set_readahead(device: &str, kb: usize) -> Result<()> {
     require_root()?;
 
     let status = Command::new("blockdev")
-        .args(&["--setra", &kb.to_string(), &format!("/dev/{}", device)])
+        .args(["--setra", &kb.to_string(), &format!("/dev/{}", device)])
         .status()?;
 
     if !status.success() {
@@ -521,7 +521,7 @@ pub fn pin_to_numa_node(pid: u32, node: usize) -> Result<()> {
     require_root()?;
 
     let status = Command::new("numactl")
-        .args(&[
+        .args([
             "--cpunodebind",
             &node.to_string(),
             "--membind",
@@ -553,7 +553,7 @@ pub fn set_cpu_affinity(pid: u32, cpus: &[usize]) -> Result<()> {
         .join(",");
 
     let status = Command::new("taskset")
-        .args(&["-cp", &cpu_list, &pid.to_string()])
+        .args(["-cp", &cpu_list, &pid.to_string()])
         .status()?;
 
     if !status.success() {
@@ -566,7 +566,7 @@ pub fn set_cpu_affinity(pid: u32, cpus: &[usize]) -> Result<()> {
 /// Set process priority
 pub fn set_process_priority(pid: u32, priority: i32) -> Result<()> {
     let status = Command::new("renice")
-        .args(&["-n", &priority.to_string(), "-p", &pid.to_string()])
+        .args(["-n", &priority.to_string(), "-p", &pid.to_string()])
         .status()?;
 
     if !status.success() {

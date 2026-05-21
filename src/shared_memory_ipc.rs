@@ -7,7 +7,7 @@
 
 use std::cell::UnsafeCell;
 use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 /// Cache line size on modern architectures (64 bytes).
 pub const CACHE_LINE_SIZE: usize = 64;
@@ -102,6 +102,12 @@ pub struct SpscRingHeader {
     pub write_idx: AlignedAtomicIndex,
     /// Read index — owned by the consumer (Rust side)
     pub read_idx: AlignedAtomicIndex,
+}
+
+impl Default for SpscRingHeader {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl SpscRingHeader {
@@ -248,6 +254,12 @@ pub struct IpcStats {
     pub min_latency_ns: AtomicU64,
     pub max_latency_ns: AtomicU64,
     pub total_latency_ns: AtomicU64,
+}
+
+impl Default for IpcStats {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl IpcStats {

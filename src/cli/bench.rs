@@ -510,7 +510,7 @@ pub fn handle_command(command: BenchCommands, ctx: &OutputContext) -> Result<()>
                 let start = std::time::Instant::now();
                 let batch_size = config.sq_depth as usize;
                 for chunk in paths.chunks(batch_size) {
-                    engine.submit_stat_batch(&chunk.to_vec());
+                    engine.submit_stat_batch(chunk);
                     engine.flush();
                 }
                 let elapsed = start.elapsed();
@@ -774,33 +774,24 @@ pub fn handle_command(command: BenchCommands, ctx: &OutputContext) -> Result<()>
                 cache.store("/user/1", fields, std::time::Duration::from_secs(60));
 
                 if !ctx.json {
-                    match cache.fetch_fragment("/user/1", &["name", "email"]) {
-                        FragmentResult::FullHit(f) => {
-                            println!(
-                                "    Client A [name,email]: {} ← from cache",
-                                style(serde_json::to_string(&f).unwrap()).green()
-                            );
-                        }
-                        _ => {}
+                    if let FragmentResult::FullHit(f) = cache.fetch_fragment("/user/1", &["name", "email"]) {
+                        println!(
+                            "    Client A [name,email]: {} ← from cache",
+                            style(serde_json::to_string(&f).unwrap()).green()
+                        );
                     }
-                    match cache.fetch_fragment("/user/1", &["role", "projects"]) {
-                        FragmentResult::FullHit(f) => {
-                            println!(
-                                "    Client B [role,projects]: {} ← from cache",
-                                style(serde_json::to_string(&f).unwrap()).green()
-                            );
-                        }
-                        _ => {}
+                    if let FragmentResult::FullHit(f) = cache.fetch_fragment("/user/1", &["role", "projects"]) {
+                        println!(
+                            "    Client B [role,projects]: {} ← from cache",
+                            style(serde_json::to_string(&f).unwrap()).green()
+                        );
                     }
-                    match cache.fetch_fragment("/user/1", &["name", "phone"]) {
-                        FragmentResult::PartialHit { found, missing } => {
-                            println!(
-                                "    Client C [name,phone]: found {} / missing {} ← partial",
-                                style(serde_json::to_string(&found).unwrap()).green(),
-                                style(format!("{:?}", missing)).red()
-                            );
-                        }
-                        _ => {}
+                    if let FragmentResult::PartialHit { found, missing } = cache.fetch_fragment("/user/1", &["name", "phone"]) {
+                        println!(
+                            "    Client C [name,phone]: found {} / missing {} ← partial",
+                            style(serde_json::to_string(&found).unwrap()).green(),
+                            style(format!("{:?}", missing)).red()
+                        );
                     }
                 }
 

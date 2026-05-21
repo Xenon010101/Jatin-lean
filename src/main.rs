@@ -110,7 +110,6 @@ use std::time::Instant;
         \n\nLegacy flat commands (e.g., 'jatin-lean health .') still work but show deprecation warnings.\
         \nAll commands support --json and --json-pretty for machine-readable output."
 )]
-
 struct Cli {
     /// Output results as JSON (machine-readable)
     #[arg(long, global = true)]
@@ -331,7 +330,7 @@ pub fn run_local_mode_from_args(
 
 /// Run in local mode — scan a single project's node_modules.
 fn run_local_mode(
-    project_path: &PathBuf,
+    project_path: &Path,
     force: bool,
     yes: bool,
     verbose: bool,
@@ -642,7 +641,7 @@ fn export_report(scan_result: &scanner::ScanResult, path: &Path) -> Result<()> {
 }
 
 /// Run in global mode — scan all projects in a directory.
-fn run_global_mode(root: &PathBuf, max_depth: usize) -> Result<()> {
+fn run_global_mode(root: &Path, max_depth: usize) -> Result<()> {
     println!(
         "  {} Scanning for node_modules in {}...",
         style("◉").cyan(),

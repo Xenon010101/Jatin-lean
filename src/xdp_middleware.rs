@@ -6,12 +6,11 @@
 //! Processes millions of packets per second at NIC driver level,
 //! before sk_buff allocation occurs.
 
-use std::collections::HashMap;
 use std::fmt;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
-use std::time::{Duration, Instant, SystemTime};
+use std::time::{Duration, Instant};
 
 // ─── Architecture Paradigm Types ─────────────────────────────────────────────
 
@@ -338,6 +337,7 @@ pub struct PacketRule {
 
 /// Criteria for matching packets.
 #[derive(Debug, Clone)]
+#[derive(Default)]
 pub struct MatchCriteria {
     pub src_ip: Option<IpAddr>,
     pub dst_ip: Option<IpAddr>,
@@ -347,18 +347,6 @@ pub struct MatchCriteria {
     pub ether_type: Option<u16>,
 }
 
-impl Default for MatchCriteria {
-    fn default() -> Self {
-        Self {
-            src_ip: None,
-            dst_ip: None,
-            src_port: None,
-            dst_port: None,
-            protocol: None,
-            ether_type: None,
-        }
-    }
-}
 
 impl MatchCriteria {
     /// Check if a packet (represented as parsed fields) matches.
@@ -424,6 +412,12 @@ pub struct XdpStats {
     pub bytes_processed: AtomicU64,
     pub obfuscated_packets: AtomicU64,
     pub started_at: Instant,
+}
+
+impl Default for XdpStats {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl XdpStats {
@@ -564,7 +558,7 @@ impl XdpControlPlane {
 
     /// Simulate BPF_PROG_RUN with live frames mode.
     /// In production, this would invoke bpf(BPF_PROG_TEST_RUN) syscall.
-    pub fn inject_live_frame(&self, packet: &[u8], interface: &str) -> XdpAction {
+    pub fn inject_live_frame(&self, packet: &[u8], _interface: &str) -> XdpAction {
         self.stats.packets_received.fetch_add(1, Ordering::Relaxed);
         self.stats
             .bytes_processed

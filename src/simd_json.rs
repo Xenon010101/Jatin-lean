@@ -186,9 +186,7 @@ impl SimdJsonScanner {
                             }
                         }
                         StructuralChar::ObjectClose | StructuralChar::ArrayClose => {
-                            if depth > 0 {
-                                depth -= 1;
-                            }
+                            depth = depth.saturating_sub(1);
                             if sc == StructuralChar::ArrayClose {
                                 if let Some(count) = array_depth_stack.pop() {
                                     array_element_count += count + 1;

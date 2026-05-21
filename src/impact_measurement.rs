@@ -402,7 +402,7 @@ fn measure_io_throughput() -> Result<f64> {
 fn measure_network_latency() -> Result<f64> {
     // Simple ping to localhost
     let output = std::process::Command::new("ping")
-        .args(&["-c", "1", "-W", "1", "127.0.0.1"])
+        .args(["-c", "1", "-W", "1", "127.0.0.1"])
         .output();
 
     if let Ok(output) = output {

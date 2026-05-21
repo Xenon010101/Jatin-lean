@@ -4,9 +4,6 @@
 //! limits, loop unrolling enforcement, and DPI (Deep Packet Inspection)
 //! evasion detection. Also models sk_buff elimination savings.
 
-use std::collections::HashMap;
-use std::sync::atomic::{AtomicU64, Ordering};
-use std::time::{Duration, Instant};
 
 /// Maximum eBPF instruction count allowed by the verifier.
 pub const BPF_MAX_INSNS: usize = 1_000_000;
@@ -239,8 +236,8 @@ impl SkbuffModel {
     pub fn savings(&self, packet_count: u64) -> SkbuffSavings {
         let alloc_ns_saved = packet_count as f64 * self.alloc_cost_ns;
         let free_ns_saved = packet_count as f64 * self.free_cost_ns;
-        let memory_saved = packet_count as u64 * self.skb_size as u64;
-        let cache_saved = packet_count as u64 * self.cache_pollution_bytes as u64;
+        let memory_saved = packet_count * self.skb_size as u64;
+        let cache_saved = packet_count * self.cache_pollution_bytes as u64;
 
         SkbuffSavings {
             total_ns_saved: alloc_ns_saved + free_ns_saved,

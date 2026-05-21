@@ -183,8 +183,8 @@ impl Plugin for NativeModulePlugin {
             let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
 
             // Native build artifacts
-            if name == "build" || name == "Release" || name == "Debug" {
-                if path.is_dir() {
+            if (name == "build" || name == "Release" || name == "Debug")
+                && path.is_dir() {
                     // Check if parent has binding.gyp
                     let parent = path.parent().unwrap_or(path);
                     if parent.join("binding.gyp").exists() || parent.join("CMakeLists.txt").exists()
@@ -198,7 +198,7 @@ impl Plugin for NativeModulePlugin {
                                 .build()
                                 .flatten()
                             {
-                                if file_entry.file_type().map_or(false, |ft| ft.is_file()) {
+                                if file_entry.file_type().is_some_and(|ft| ft.is_file()) {
                                     let file_path = file_entry.path().to_path_buf();
                                     let ext = file_path
                                         .extension()
@@ -226,7 +226,6 @@ impl Plugin for NativeModulePlugin {
                         }
                     }
                 }
-            }
         }
         Ok(())
     }
@@ -253,7 +252,7 @@ impl Plugin for TypeScriptSourcePlugin {
             .build();
 
         for entry in walker.flatten() {
-            if !entry.file_type().map_or(false, |ft| ft.is_file()) {
+            if !entry.file_type().is_some_and(|ft| ft.is_file()) {
                 continue;
             }
 
@@ -338,7 +337,7 @@ impl Plugin for TestFilePlugin {
             .build();
 
         for entry in walker.flatten() {
-            if !entry.file_type().map_or(false, |ft| ft.is_dir()) {
+            if !entry.file_type().is_some_and(|ft| ft.is_dir()) {
                 continue;
             }
 
@@ -351,7 +350,7 @@ impl Plugin for TestFilePlugin {
                     .build()
                     .flatten()
                 {
-                    if file_entry.file_type().map_or(false, |ft| ft.is_file()) {
+                    if file_entry.file_type().is_some_and(|ft| ft.is_file()) {
                         if let Ok(meta) = std::fs::metadata(file_entry.path()) {
                             let pkg_name = entry
                                 .path()
@@ -401,7 +400,7 @@ impl Plugin for ExampleFilePlugin {
             .build();
 
         for entry in walker.flatten() {
-            if !entry.file_type().map_or(false, |ft| ft.is_dir()) {
+            if !entry.file_type().is_some_and(|ft| ft.is_dir()) {
                 continue;
             }
 
@@ -413,7 +412,7 @@ impl Plugin for ExampleFilePlugin {
                     .build()
                     .flatten()
                 {
-                    if file_entry.file_type().map_or(false, |ft| ft.is_file()) {
+                    if file_entry.file_type().is_some_and(|ft| ft.is_file()) {
                         if let Ok(meta) = std::fs::metadata(file_entry.path()) {
                             let pkg_name = entry
                                 .path()
@@ -463,7 +462,7 @@ impl Plugin for BenchmarkFilePlugin {
             .build();
 
         for entry in walker.flatten() {
-            if !entry.file_type().map_or(false, |ft| ft.is_dir()) {
+            if !entry.file_type().is_some_and(|ft| ft.is_dir()) {
                 continue;
             }
 
@@ -475,7 +474,7 @@ impl Plugin for BenchmarkFilePlugin {
                     .build()
                     .flatten()
                 {
-                    if file_entry.file_type().map_or(false, |ft| ft.is_file()) {
+                    if file_entry.file_type().is_some_and(|ft| ft.is_file()) {
                         if let Ok(meta) = std::fs::metadata(file_entry.path()) {
                             let pkg_name = entry
                                 .path()

@@ -181,6 +181,12 @@ pub struct CacheOptStats {
     pub estimated_main_mem: AtomicU64,
 }
 
+impl Default for CacheOptStats {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CacheOptStats {
     pub fn new() -> Self {
         Self {
@@ -270,8 +276,8 @@ pub struct TlbInfo {
 /// Calculate TLB optimization recommendations for a working set size.
 pub fn analyze_tlb(working_set_bytes: usize) -> TlbInfo {
     let hierarchy = CacheHierarchy::default();
-    let pages_4k = (working_set_bytes + hierarchy.page_size - 1) / hierarchy.page_size;
-    let pages_2m = (working_set_bytes + hierarchy.huge_page_size - 1) / hierarchy.huge_page_size;
+    let pages_4k = working_set_bytes.div_ceil(hierarchy.page_size);
+    let pages_2m = working_set_bytes.div_ceil(hierarchy.huge_page_size);
 
     let standard_coverage =
         (hierarchy.tlb_entries * hierarchy.page_size) as f64 / working_set_bytes as f64;

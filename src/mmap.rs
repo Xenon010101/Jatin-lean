@@ -47,8 +47,8 @@ impl MappedFile {
         #[cfg(unix)]
         {
             match Self::mmap_unix(path, size) {
-                Ok(mapped) => return Ok(mapped),
-                Err(_) => return Self::read_small(path, size),
+                Ok(mapped) => Ok(mapped),
+                Err(_) => Self::read_small(path, size),
             }
         }
 
@@ -316,7 +316,7 @@ impl BatchProcessor {
 
         let files: Vec<PathBuf> = walker
             .flatten()
-            .filter(|e| e.file_type().map_or(false, |ft| ft.is_file()))
+            .filter(|e| e.file_type().is_some_and(|ft| ft.is_file()))
             .filter(|e| {
                 if max_size == 0 {
                     return true;

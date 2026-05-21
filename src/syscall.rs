@@ -185,7 +185,7 @@ impl BatchDeleter {
         // Auto: use parallel on all platforms
         #[cfg(target_os = "linux")]
         {
-            return DeleteStrategy::BatchSyscall;
+            DeleteStrategy::BatchSyscall
         }
 
         #[cfg(not(target_os = "linux"))]
@@ -343,7 +343,7 @@ impl BatchDeleter {
 pub fn fast_dir_size(path: &Path) -> u64 {
     #[cfg(target_os = "linux")]
     {
-        return fast_dir_size_linux(path);
+        fast_dir_size_linux(path)
     }
 
     #[cfg(not(target_os = "linux"))]
@@ -374,7 +374,7 @@ fn fast_dir_size_linux(path: &Path) -> u64 {
         let total = &total;
         Box::new(move |entry| {
             if let Ok(entry) = entry {
-                if entry.file_type().map_or(false, |ft| ft.is_file()) {
+                if entry.file_type().is_some_and(|ft| ft.is_file()) {
                     if let Ok(meta) = entry.metadata() {
                         total.fetch_add(meta.len(), Ordering::Relaxed);
                     }
@@ -411,7 +411,7 @@ fn fast_dir_size_generic(path: &Path) -> u64 {
 pub fn cow_copy(src: &Path, dst: &Path) -> Result<()> {
     #[cfg(target_os = "linux")]
     {
-        return cow_copy_linux(src, dst);
+        cow_copy_linux(src, dst)
     }
 
     #[cfg(target_os = "macos")]
@@ -491,7 +491,7 @@ impl FsInfo {
     pub fn query(path: &Path) -> Result<Self> {
         #[cfg(unix)]
         {
-            return Self::query_unix(path);
+            Self::query_unix(path)
         }
 
         #[cfg(not(unix))]

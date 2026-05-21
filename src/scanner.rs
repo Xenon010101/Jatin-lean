@@ -97,11 +97,10 @@ pub fn find_node_modules(root: &Path, max_depth: usize) -> Vec<PathBuf> {
         .build();
 
     for entry in walker.flatten() {
-        if entry.file_type().map_or(false, |ft| ft.is_dir()) {
-            if entry.file_name().to_str() == Some("node_modules") {
+        if entry.file_type().is_some_and(|ft| ft.is_dir())
+            && entry.file_name().to_str() == Some("node_modules") {
                 results.push(entry.into_path());
             }
-        }
     }
 
     results
@@ -121,7 +120,7 @@ pub fn scan_node_modules(
     rules: &PruneRules,
     profiler: Option<&mut Profiler>,
 ) -> Result<ScanResult> {
-    let scan_start = Instant::now();
+    let _scan_start = Instant::now();
 
     let total_files = AtomicU64::new(0);
     let total_size = AtomicU64::new(0);
@@ -169,7 +168,7 @@ pub fn scan_node_modules(
         }
     }
     let discovery_duration = discovery_start.elapsed();
-    if let Some(prof) = profiler.as_ref() {
+    if let Some(_prof) = profiler.as_ref() {
         // Note: We can't mutate profiler here due to borrow checker
         // Will record at the end
     }
@@ -215,7 +214,7 @@ pub fn scan_node_modules(
             .build();
 
         for entry in walker.flatten() {
-            if !entry.file_type().map_or(false, |ft| ft.is_file()) {
+            if !entry.file_type().is_some_and(|ft| ft.is_file()) {
                 continue;
             }
 
@@ -229,7 +228,7 @@ pub fn scan_node_modules(
 
             let current_files = total_files.load(Ordering::Relaxed);
             let current_size = total_size.load(Ordering::Relaxed);
-            if current_files % 500 == 0 {
+            if current_files.is_multiple_of(500) {
                 pb.set_message(format!(
                     "Scanning... {} files found | {} indexed",
                     format_number(current_files),
@@ -381,12 +380,11 @@ fn extract_entry_points(json: &serde_json::Value, pkg_root: &Path) -> Vec<PathBu
 /// Recursively collect file paths from the `exports` field.
 fn collect_export_paths(value: &serde_json::Value, root: &Path, out: &mut Vec<PathBuf>) {
     match value {
-        serde_json::Value::String(s) => {
+        serde_json::Value::String(s)
             // Skip wildcard patterns
-            if !s.contains('*') {
+            if !s.contains('*') => {
                 out.push(root.join(s));
             }
-        }
         serde_json::Value::Object(map) => {
             for v in map.values() {
                 collect_export_paths(v, root, out);
@@ -462,7 +460,7 @@ fn dir_size(path: &Path) -> u64 {
 
     walker
         .flatten()
-        .filter(|e| e.file_type().map_or(false, |ft| ft.is_file()))
+        .filter(|e| e.file_type().is_some_and(|ft| ft.is_file()))
         .filter_map(|e| e.metadata().ok())
         .map(|m| m.len())
         .sum()

@@ -4,8 +4,7 @@
 //! with static dispatch (enums/generics) to eliminate virtual call overhead.
 
 use crate::plugin::Plugin;
-use crate::scanner::ScanResult;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 /// Enum-based static dispatch for built-in plugins.
 /// Eliminates the cost of `Box<dyn Plugin>` and vtable lookups.
@@ -42,6 +41,12 @@ impl StaticPlugin {
 /// A collection of plugins that uses monomorphic dispatch.
 pub struct MonomorphicPluginRunner {
     pub plugins: Vec<StaticPlugin>,
+}
+
+impl Default for MonomorphicPluginRunner {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl MonomorphicPluginRunner {

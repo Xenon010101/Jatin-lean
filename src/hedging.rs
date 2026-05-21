@@ -51,6 +51,12 @@ pub struct HedgingStats {
     pub total_latency_ns: AtomicU64,
 }
 
+impl Default for HedgingStats {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl HedgingStats {
     pub fn new() -> Self {
         Self {
@@ -111,7 +117,7 @@ impl HedgingEngine {
             self.stats.hedge_wins.fetch_add(1, Ordering::Relaxed);
         }
 
-        let cancellations = if sent_count > 1 { sent_count - 1 } else { 0 };
+        let cancellations = sent_count.saturating_sub(1);
         self.stats
             .cancellations
             .fetch_add(cancellations as u64, Ordering::Relaxed);
@@ -160,6 +166,12 @@ pub struct FragCacheStats {
     pub backend_calls_saved: AtomicU64,
 }
 
+impl Default for FragCacheStats {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl FragCacheStats {
     pub fn new() -> Self {
         Self {
@@ -180,6 +192,12 @@ impl FragCacheStats {
         let hits =
             self.full_hits.load(Ordering::Relaxed) + self.partial_hits.load(Ordering::Relaxed);
         hits as f64 / total as f64 * 100.0
+    }
+}
+
+impl Default for FragmentedCache {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

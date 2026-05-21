@@ -5,7 +5,6 @@
 //! whether to execute tasks on CPU or GPU based on workload profiling,
 //! with unified memory management inspired by Grace Hopper NVLink-C2C.
 
-use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, Instant};
 
@@ -306,6 +305,12 @@ pub struct EngineStats {
     pub fallback_dispatches: AtomicU64,
     pub total_compute_ns: AtomicU64,
     pub gpu_offload_bytes: AtomicU64,
+}
+
+impl Default for EngineStats {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl EngineStats {
