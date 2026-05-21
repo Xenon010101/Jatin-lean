@@ -25,7 +25,6 @@
 #![allow(clippy::len_zero)]
 #![allow(clippy::nonminimal_bool)]
 #![allow(clippy::print_literal)]
-#![allow(clippy::manual_checked_ops)]
 #![allow(clippy::useless_vec)]
 #![allow(clippy::needless_borrows_for_generic_args)]
 #![allow(clippy::if_same_then_else)]

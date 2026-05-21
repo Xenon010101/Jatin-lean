@@ -7,7 +7,6 @@
     clippy::too_many_arguments,
     clippy::mut_from_ref,
     clippy::unnecessary_sort_by,
-    clippy::manual_checked_ops,
     clippy::new_without_default,
     clippy::doc_lazy_continuation,
     clippy::if_same_then_else
