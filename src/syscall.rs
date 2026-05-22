@@ -520,8 +520,8 @@ impl FsInfo {
         }
 
         let block_size = statfs.f_bsize as u64;
-        let total = statfs.f_blocks as u64 * block_size;
-        let available = statfs.f_bavail as u64 * block_size;
+        let total = statfs.f_blocks * block_size;
+        let available = statfs.f_bavail * block_size;
 
         let fs_type = match statfs.f_type {
             0xEF53 => "ext4".to_string(),

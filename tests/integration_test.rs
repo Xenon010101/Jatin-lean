@@ -169,7 +169,7 @@ fn test_scan_finds_documentation() -> Result<()> {
         c.path
             .file_name()
             .and_then(|n| n.to_str())
-            .map_or(false, |n| {
+            .is_some_and(|n| {
                 n.eq_ignore_ascii_case("readme.md") || n.eq_ignore_ascii_case("changelog.md")
             })
     });
@@ -276,10 +276,9 @@ fn test_config_example_creation() -> Result<()> {
 
 #[test]
 fn test_prune_rules_default() {
-    let rules = jatin_lean::rules::PruneRules::new();
+    let _rules = jatin_lean::rules::PruneRules::new();
     // Default rules should have patterns — scan finds candidates
     // PruneRules::new() should work without panicking
-    assert!(true, "PruneRules::new() should succeed");
 }
 
 #[test]

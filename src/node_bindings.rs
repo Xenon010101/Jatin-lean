@@ -75,7 +75,8 @@ pub fn scan_node_modules(path: String) -> Result<ScanResult> {
 
     let savings = result.savings();
     let savings_pct = if result.total_size > 0 {
-        (savings as f64 / result.total_size as f64 * 100.0)
+        // (savings as f64 / result.total_size as f64 * 100.0)
+        savings as f64 / result.total_size as f64 * 100.0
     } else {
         0.0
     };
@@ -179,7 +180,7 @@ pub fn analyze_treeshake(path: String) -> Result<f64> {
         .map_err(|e| Error::from_reason(format!("Tree-shake analysis failed: {}", e)))?;
 
     let savings_pct = if result.total_exports > 0 {
-        (result.unused_exports as f64 / result.total_exports as f64 * 100.0)
+        result.unused_exports as f64 / result.total_exports as f64 * 100.0
     } else {
         0.0
     };

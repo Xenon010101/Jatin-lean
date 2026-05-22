@@ -456,11 +456,7 @@ pub fn io_stats(path: &Path) -> Result<IoStats> {
         total_size,
         max_file_size,
         min_file_size,
-        avg_file_size: if total_files > 0 {
-            total_size / total_files
-        } else {
-            0
-        },
+        avg_file_size: total_size.checked_div(total_files).unwrap_or(0),
     })
 }
 
