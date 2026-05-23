@@ -1,3 +1,12 @@
+🌐 **Languages:**
+[![EN](https://img.shields.io/badge/lang-English-blue)](README.md)
+[![HI](https://img.shields.io/badge/lang-हिन्दी-orange)](README_HI.md)
+[![ES](https://img.shields.io/badge/lang-Español-green)](README_ES.md)
+[![FR](https://img.shields.io/badge/lang-Français-red)](README_FR.md)
+[![ZH](https://img.shields.io/badge/lang-中文-yellow)](README_ZH.md)
+
+---
+
 # 🚀 jatin-lean v1.0.0 - Universal System Optimization Platform
 
 > Enterprise-grade optimization platform with **native Node.js bindings** and professional CLI. Reduce disk footprint by up to **50%** while leveraging hardware-level optimizations (io_uring, SIMD, eBPF) for unmatched performance.
