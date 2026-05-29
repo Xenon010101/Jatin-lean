@@ -333,8 +333,10 @@ impl MmapRingBuffer {
                     out
                 };
 
-                self.slot_sequence(slot_idx)
-                    .store(read.wrapping_add(self.layout.capacity as u64), Ordering::Release);
+                self.slot_sequence(slot_idx).store(
+                    read.wrapping_add(self.layout.capacity as u64),
+                    Ordering::Release,
+                );
                 self.stats.reads.fetch_add(1, Ordering::Relaxed);
                 return Some(data);
             }
@@ -510,16 +512,32 @@ pub fn print_mmap_report(stats: &MmapRingStats) {
         style("mmap Ring Buffer Report").cyan().bold(),
         style("----------------------------").dim()
     );
-    println!("  {} Writes:          {}", style(">").dim(), stats.writes.load(Ordering::Relaxed));
-    println!("  {} Reads:           {}", style(">").dim(), stats.reads.load(Ordering::Relaxed));
+    println!(
+        "  {} Writes:          {}",
+        style(">").dim(),
+        stats.writes.load(Ordering::Relaxed)
+    );
+    println!(
+        "  {} Reads:           {}",
+        style(">").dim(),
+        stats.reads.load(Ordering::Relaxed)
+    );
     println!(
         "  {} Bytes moved:     {} ({:.1} MB)",
         style(">").dim(),
         stats.bytes_transferred.load(Ordering::Relaxed),
         stats.bytes_transferred.load(Ordering::Relaxed) as f64 / 1e6
     );
-    println!("  {} Buffer full:     {}", style(">").dim(), stats.full_events.load(Ordering::Relaxed));
-    println!("  {} Buffer empty:    {}", style(">").dim(), stats.empty_events.load(Ordering::Relaxed));
+    println!(
+        "  {} Buffer full:     {}",
+        style(">").dim(),
+        stats.full_events.load(Ordering::Relaxed)
+    );
+    println!(
+        "  {} Buffer empty:    {}",
+        style(">").dim(),
+        stats.empty_events.load(Ordering::Relaxed)
+    );
     println!(
         "  {} Batch processes: {}",
         style(">").dim(),

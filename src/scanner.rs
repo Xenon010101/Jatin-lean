@@ -131,9 +131,10 @@ pub fn scan_node_modules(
     let candidates = Arc::new(Mutex::new(Vec::new()));
     let packages_processed = Arc::new(AtomicU64::new(0));
     let telemetry_root = node_modules_path.parent().unwrap_or_else(|| Path::new("."));
-    let telemetry = MmapRingBuffer::open_for_project(telemetry_root, 4096, ScanTelemetry::WIRE_SIZE)
-        .ok()
-        .map(Arc::new);
+    let telemetry =
+        MmapRingBuffer::open_for_project(telemetry_root, 4096, ScanTelemetry::WIRE_SIZE)
+            .ok()
+            .map(Arc::new);
 
     // Create progress bar
     let pb = ProgressBar::new_spinner();
