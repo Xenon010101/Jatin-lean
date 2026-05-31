@@ -193,6 +193,7 @@ impl MmapRingBuffer {
             .read(true)
             .write(true)
             .create(true)
+            .truncate(false)
             .open(&path)?;
 
         let required_len = layout.required_bytes(HEADER_BYTES);
