@@ -28,21 +28,16 @@ pub enum FileCategory {
 }
 
 /// Pre-packaged pruning safety tiers.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, ValueEnum)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, ValueEnum)]
 #[serde(rename_all = "lowercase")]
 pub enum PruningProfile {
     /// Safest tier: only CI/CD configuration and obvious test assets.
     Conservative,
     /// Default tier: docs, examples, source maps, CI/CD config, and tests.
+    #[default]
     Balanced,
     /// Maximum savings: all known categories, including TS sources and build artifacts.
     Aggressive,
-}
-
-impl Default for PruningProfile {
-    fn default() -> Self {
-        Self::Balanced
-    }
 }
 
 impl PruningProfile {
@@ -577,8 +572,7 @@ mod tests {
 
     #[test]
     fn test_ts_source_classified() {
-        let rules =
-            PruneRules::new_with_config_and_profile(None, Some(PruningProfile::Aggressive));
+        let rules = PruneRules::new_with_config_and_profile(None, Some(PruningProfile::Aggressive));
         let path = PathBuf::from("src/utils.ts");
         assert_eq!(rules.classify(&path), Some(FileCategory::TypeScriptSource));
     }
@@ -621,8 +615,7 @@ mod tests {
 
     #[test]
     fn test_build_files_classified() {
-        let rules =
-            PruneRules::new_with_config_and_profile(None, Some(PruningProfile::Aggressive));
+        let rules = PruneRules::new_with_config_and_profile(None, Some(PruningProfile::Aggressive));
 
         // Build files
         assert_eq!(
@@ -765,8 +758,7 @@ mod tests {
 
     #[test]
     fn test_aggressive_profile_prunes_all_known_categories() {
-        let rules =
-            PruneRules::new_with_config_and_profile(None, Some(PruningProfile::Aggressive));
+        let rules = PruneRules::new_with_config_and_profile(None, Some(PruningProfile::Aggressive));
 
         assert_eq!(
             rules.classify(&PathBuf::from("README.md")),
