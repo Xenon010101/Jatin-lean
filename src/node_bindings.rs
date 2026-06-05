@@ -108,7 +108,7 @@ pub fn check_health(path: String) -> Result<HealthResult> {
 
     for issue in &report.issues {
         match issue.category {
-            health::IssueCategory::MissingPeerDep => {
+            health::IssueCategory::MissingDependency | health::IssueCategory::MissingPeerDep => {
                 if let Some(ref pkg) = issue.package {
                     missing_deps.push(pkg.clone());
                 }
