@@ -4,6 +4,7 @@
 //! collecting file metadata for the pruning engine.
 
 use crate::allocator::ScanArena;
+use crate::mmap_ipc::{MmapRingBuffer, ScanTelemetry};
 use crate::profiler::{PackageTiming, Profiler};
 use crate::rules::{FileCategory, PruneRules};
 use anyhow::{Context, Result};
@@ -122,12 +123,18 @@ pub fn scan_node_modules(
     rules: &PruneRules,
     profiler: Option<&mut Profiler>,
 ) -> Result<ScanResult> {
-    let _scan_start = Instant::now();
+    let scan_start = Instant::now();
 
     let total_files = AtomicU64::new(0);
     let total_size = AtomicU64::new(0);
     let whitelisted = AtomicU64::new(0);
     let candidates = Arc::new(Mutex::new(Vec::new()));
+    let packages_processed = Arc::new(AtomicU64::new(0));
+    let telemetry_root = node_modules_path.parent().unwrap_or_else(|| Path::new("."));
+    let telemetry =
+        MmapRingBuffer::open_for_project(telemetry_root, 4096, ScanTelemetry::WIRE_SIZE)
+            .ok()
+            .map(Arc::new);
 
     // Create progress bar
     let pb = ProgressBar::new_spinner();
@@ -176,6 +183,15 @@ pub fn scan_node_modules(
     }
 
     let package_count = packages.len();
+    publish_scan_telemetry(
+        telemetry.as_deref(),
+        &total_files,
+        &total_size,
+        scan_start,
+        package_count,
+        0,
+        "discovery-complete",
+    );
 
     // Phase 2: Parsing - extract entry points from package.json
     let parsing_start = Instant::now();
@@ -191,6 +207,16 @@ pub fn scan_node_modules(
         let pkg_start = Instant::now();
         let pkg_name = extract_package_name(pkg_path, node_modules_path);
         let pkg_name_ref = arena.alloc_str(&pkg_name);
+        publish_scan_telemetry(
+            telemetry.as_deref(),
+            &total_files,
+            &total_size,
+            scan_start,
+            package_count,
+            packages_processed.load(Ordering::Relaxed),
+            pkg_name_ref,
+        );
+
         // Parse package.json for entry points
         let pkg_json_path = pkg_path.join("package.json");
         if pkg_json_path.exists() {
@@ -237,6 +263,15 @@ pub fn scan_node_modules(
                     format_number(current_files),
                     format_size(current_size)
                 ));
+                publish_scan_telemetry(
+                    telemetry.as_deref(),
+                    &total_files,
+                    &total_size,
+                    scan_start,
+                    package_count,
+                    packages_processed.load(Ordering::Relaxed),
+                    pkg_name_ref,
+                );
             }
 
             // Phase 4: Classification - determine if file should be pruned
@@ -272,11 +307,30 @@ pub fn scan_node_modules(
             candidates_found: pkg_candidates,
         };
         package_timings.lock().unwrap().push(timing);
+        let processed = packages_processed.fetch_add(1, Ordering::Relaxed) + 1;
+        publish_scan_telemetry(
+            telemetry.as_deref(),
+            &total_files,
+            &total_size,
+            scan_start,
+            package_count,
+            processed,
+            pkg_name_ref,
+        );
     });
 
     let parsing_duration = parsing_start.elapsed();
 
     pb.finish_and_clear();
+    publish_scan_telemetry(
+        telemetry.as_deref(),
+        &total_files,
+        &total_size,
+        scan_start,
+        package_count,
+        packages_processed.load(Ordering::Relaxed),
+        "complete",
+    );
 
     let candidates = Arc::try_unwrap(candidates)
         .map_err(|_| anyhow::anyhow!("Failed to unwrap candidates"))
@@ -306,6 +360,39 @@ pub fn scan_node_modules(
         total_packages: package_count,
         whitelisted_count: whitelisted.load(Ordering::Relaxed),
     })
+}
+
+fn publish_scan_telemetry(
+    telemetry: Option<&MmapRingBuffer>,
+    total_files: &AtomicU64,
+    total_size: &AtomicU64,
+    scan_start: Instant,
+    packages_discovered: usize,
+    packages_processed: u64,
+    current_package: &str,
+) {
+    let Some(telemetry) = telemetry else {
+        return;
+    };
+
+    let files_walked = total_files.load(Ordering::Relaxed);
+    let bytes_walked = total_size.load(Ordering::Relaxed);
+    let elapsed = scan_start.elapsed().as_secs_f64();
+    let files_per_second = if elapsed > 0.0 {
+        files_walked as f64 / elapsed
+    } else {
+        0.0
+    };
+
+    let snapshot = ScanTelemetry::new(
+        files_walked,
+        bytes_walked,
+        files_per_second,
+        packages_discovered as u64,
+        packages_processed,
+        current_package,
+    );
+    let _ = telemetry.write_scan_progress(&snapshot);
 }
 
 /// Extract the package name from its path.

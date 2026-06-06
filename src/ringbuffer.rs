@@ -7,6 +7,46 @@ use std::cell::UnsafeCell;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 
+/// Cache-line size used by the ring-buffer layouts.
+pub const CACHE_LINE_BYTES: usize = 64;
+
+/// Fixed metadata stored before each payload in byte-oriented ring slots.
+pub const FIXED_SLOT_HEADER_BYTES: usize = 24;
+
+/// Align a byte count to the next cache-line boundary.
+pub fn align_to_cache_line(value: usize) -> usize {
+    (value + (CACHE_LINE_BYTES - 1)) & !(CACHE_LINE_BYTES - 1)
+}
+
+/// Shared fixed-slot layout used by mmap-backed IPC rings.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct FixedSlotLayout {
+    pub capacity: usize,
+    pub payload_size: usize,
+    pub slot_stride: usize,
+}
+
+impl FixedSlotLayout {
+    pub fn new(capacity: usize, payload_size: usize) -> Self {
+        assert!(capacity > 0, "Ring buffer capacity must be > 0");
+        assert!(payload_size > 0, "Ring buffer payload size must be > 0");
+
+        Self {
+            capacity: capacity.next_power_of_two(),
+            payload_size,
+            slot_stride: align_to_cache_line(FIXED_SLOT_HEADER_BYTES + payload_size),
+        }
+    }
+
+    pub fn mask(&self) -> usize {
+        self.capacity - 1
+    }
+
+    pub fn required_bytes(&self, header_bytes: usize) -> usize {
+        header_bytes + self.capacity * self.slot_stride
+    }
+}
+
 /// Cache-line aligned wrapper to prevent false sharing.
 #[repr(align(64))]
 pub struct CacheAligned<T> {
@@ -310,5 +350,16 @@ mod tests {
         brb.flush_batch(vec![1, 2, 3, 4]);
         brb.flush_batch(vec![5, 6, 7, 8]);
         assert_eq!(brb.drain_all_flat().len(), 8);
+    }
+
+    #[test]
+    fn test_fixed_slot_layout_alignment() {
+        let layout = FixedSlotLayout::new(3, 184);
+        assert_eq!(layout.capacity, 4);
+        assert_eq!(layout.slot_stride % CACHE_LINE_BYTES, 0);
+        assert_eq!(
+            layout.required_bytes(256),
+            256 + layout.capacity * layout.slot_stride
+        );
     }
 }
