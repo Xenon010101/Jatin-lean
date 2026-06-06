@@ -154,9 +154,13 @@ struct Cli {
     #[arg(long, value_name = "FILE")]
     init_config: Option<PathBuf>,
 
+    /// Pruning safety tier (conservative, balanced, aggressive)
+    #[arg(long, value_enum)]
+    profile: Option<rules::PruningProfile>,
+
     /// Enable performance profiling
-    #[arg(long)]
-    profile: bool,
+    #[arg(long = "perf-profile")]
+    perf_profile: bool,
 
     /// Create a snapshot before deletion (for undo support)
     #[arg(long)]
@@ -278,6 +282,7 @@ fn main() -> Result<()> {
             args.config.as_deref(),
             args.keep_license,
             args.profile,
+            args.perf_profile,
             args.snapshot,
             args.export.as_deref(),
         )?;
@@ -308,7 +313,7 @@ pub fn run_local_mode_from_args(
     yes: bool,
     verbose: bool,
     keep_license: bool,
-    profile: bool,
+    perf_profile: bool,
     snapshot: bool,
     export: Option<&std::path::Path>,
     _ctx: &output::OutputContext,
@@ -321,7 +326,8 @@ pub fn run_local_mode_from_args(
         verbose,
         None,
         keep_license,
-        profile,
+        None,
+        perf_profile,
         snapshot,
         export,
     )
@@ -335,11 +341,12 @@ fn run_local_mode(
     verbose: bool,
     config_path: Option<&Path>,
     keep_license: bool,
-    profile: bool,
+    pruning_profile: Option<rules::PruningProfile>,
+    perf_profile: bool,
     create_snapshot: bool,
     export_path: Option<&Path>,
 ) -> Result<()> {
-    let mut profiler = profiler::Profiler::with_profiling(profile);
+    let mut profiler = profiler::Profiler::with_profiling(perf_profile);
     let overall_start = Instant::now();
 
     // Find node_modules
@@ -396,7 +403,12 @@ fn run_local_mode(
 
     // Phase 1: Discovery
     profiler.start_span("Discovery (Scan)");
-    let rules = rules::PruneRules::new_with_config(config);
+    let rules = rules::PruneRules::new_with_config_and_profile(config, pruning_profile);
+    println!(
+        "  {} Using pruning profile: {}",
+        style("◉").cyan(),
+        style(rules.profile.name()).cyan()
+    );
     let scan_result = scanner::scan_node_modules(&nm_path, &rules, None)
         .context("Failed to scan node_modules")?;
     profiler.end_span(scan_result.total_files);
@@ -599,7 +611,7 @@ fn run_local_mode(
     }
 
     // Print profiling report
-    if profile {
+    if perf_profile {
         profiler::print_profiling_report(&profiler);
         // Enhanced dashboard (Step 14)
         let metrics = profiler.clone().finalize();

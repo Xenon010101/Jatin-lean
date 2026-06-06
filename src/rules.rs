@@ -3,7 +3,9 @@
 //! Defines patterns for strict junk, development bloat, build leftovers,
 //! and source map files that can be safely removed.
 
+use clap::ValueEnum;
 use regex::RegexSet;
+use serde::{Deserialize, Serialize};
 use std::path::Path;
 
 /// Categories of files that can be pruned.
@@ -23,6 +25,52 @@ pub enum FileCategory {
     TypeScriptSource,
     /// Example / demo files
     Example,
+}
+
+/// Pre-packaged pruning safety tiers.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, ValueEnum)]
+#[serde(rename_all = "lowercase")]
+pub enum PruningProfile {
+    /// Safest tier: only CI/CD configuration and obvious test assets.
+    Conservative,
+    /// Default tier: docs, examples, source maps, CI/CD config, and tests.
+    #[default]
+    Balanced,
+    /// Maximum savings: all known categories, including TS sources and build artifacts.
+    Aggressive,
+}
+
+impl PruningProfile {
+    /// Categories enabled by this pruning profile.
+    pub fn enabled_categories(&self) -> &'static [FileCategory] {
+        match self {
+            Self::Conservative => &[FileCategory::CiConfig, FileCategory::TestAsset],
+            Self::Balanced => &[
+                FileCategory::Documentation,
+                FileCategory::Example,
+                FileCategory::SourceMap,
+                FileCategory::CiConfig,
+                FileCategory::TestAsset,
+            ],
+            Self::Aggressive => &[
+                FileCategory::Documentation,
+                FileCategory::TestAsset,
+                FileCategory::BuildArtifact,
+                FileCategory::SourceMap,
+                FileCategory::CiConfig,
+                FileCategory::TypeScriptSource,
+                FileCategory::Example,
+            ],
+        }
+    }
+
+    pub fn name(&self) -> &'static str {
+        match self {
+            Self::Conservative => "conservative",
+            Self::Balanced => "balanced",
+            Self::Aggressive => "aggressive",
+        }
+    }
 }
 
 impl FileCategory {
@@ -55,6 +103,8 @@ impl FileCategory {
 
 /// File patterns organized by category.
 pub struct PruneRules {
+    /// Active pruning profile.
+    pub profile: PruningProfile,
     /// Documentation file patterns (checked by filename)
     pub doc_files: Vec<String>,
     /// Documentation directories
@@ -95,7 +145,19 @@ impl PruneRules {
     }
 
     pub fn new_with_config(config: Option<crate::config::Config>) -> Self {
+        Self::new_with_config_and_profile(config, None)
+    }
+
+    pub fn new_with_config_and_profile(
+        config: Option<crate::config::Config>,
+        profile_override: Option<PruningProfile>,
+    ) -> Self {
+        let profile = profile_override
+            .or_else(|| config.as_ref().map(|cfg| cfg.profile))
+            .unwrap_or_default();
+
         let mut rules = Self {
+            profile,
             // ── Documentation ──────────────────────────────
             doc_files: vec![
                 "README.md",
@@ -354,6 +416,14 @@ impl PruneRules {
         rules
     }
 
+    fn category_enabled(&self, category: FileCategory) -> bool {
+        self.profile.enabled_categories().contains(&category)
+    }
+
+    fn enabled_category(&self, category: FileCategory) -> Option<FileCategory> {
+        self.category_enabled(category).then_some(category)
+    }
+
     /// Returns true if the given filename matches a license file pattern
     /// (case-insensitive: license*, licence*, LICENSE, LICENCE, etc.)
     fn is_license_file(file_name: &str) -> bool {
@@ -390,39 +460,39 @@ impl PruneRules {
             let dir_name = component.as_os_str().to_str().unwrap_or("");
 
             if self.test_dirs.iter().any(|d| d == dir_name) {
-                return Some(FileCategory::TestAsset);
+                return self.enabled_category(FileCategory::TestAsset);
             }
             if self.doc_dirs.iter().any(|d| d == dir_name) {
                 if dir_name == ".github" {
-                    return Some(FileCategory::CiConfig);
+                    return self.enabled_category(FileCategory::CiConfig);
                 }
-                return Some(FileCategory::Documentation);
+                return self.enabled_category(FileCategory::Documentation);
             }
             if self.ci_dirs.iter().any(|d| d == dir_name) {
-                return Some(FileCategory::CiConfig);
+                return self.enabled_category(FileCategory::CiConfig);
             }
             if self.example_dirs.iter().any(|d| d == dir_name) {
-                return Some(FileCategory::Example);
+                return self.enabled_category(FileCategory::Example);
             }
             // build dirs — but only if not the package root build
             if self.build_dirs.iter().any(|d| d == dir_name) {
-                return Some(FileCategory::BuildArtifact);
+                return self.enabled_category(FileCategory::BuildArtifact);
             }
         }
 
         // ── Check filenames (documentation) ──
         if self.doc_files.iter().any(|f| f == file_name) {
-            return Some(FileCategory::Documentation);
+            return self.enabled_category(FileCategory::Documentation);
         }
 
         // ── Check CI config files ──
         if self.ci_files.iter().any(|f| f == file_name) {
-            return Some(FileCategory::CiConfig);
+            return self.enabled_category(FileCategory::CiConfig);
         }
 
         // ── Check build artifact filenames ──
         if self.build_files.iter().any(|f| f == file_name) {
-            return Some(FileCategory::BuildArtifact);
+            return self.enabled_category(FileCategory::BuildArtifact);
         }
 
         // ── Check extensions ──
@@ -431,27 +501,27 @@ impl PruneRules {
         // Source maps (check before general extension checks since .js.map contains .map)
         for ext in &self.map_extensions {
             if path_str.ends_with(ext) {
-                return Some(FileCategory::SourceMap);
+                return self.enabled_category(FileCategory::SourceMap);
             }
         }
 
         // Build artifact extensions
         for ext in &self.build_extensions {
             if file_name.ends_with(ext) {
-                return Some(FileCategory::BuildArtifact);
+                return self.enabled_category(FileCategory::BuildArtifact);
             }
         }
 
         // Test file patterns (regex)
         if self.test_file_regex.is_match(file_name) {
-            return Some(FileCategory::TestAsset);
+            return self.enabled_category(FileCategory::TestAsset);
         }
 
         // TypeScript sources (but NOT .d.ts declaration files)
         if !file_name.ends_with(".d.ts") && !file_name.ends_with(".d.tsx") {
             for ext in &self.ts_source_extensions {
                 if file_name.ends_with(ext) {
-                    return Some(FileCategory::TypeScriptSource);
+                    return self.enabled_category(FileCategory::TypeScriptSource);
                 }
             }
         }
@@ -502,7 +572,7 @@ mod tests {
 
     #[test]
     fn test_ts_source_classified() {
-        let rules = PruneRules::new();
+        let rules = PruneRules::new_with_config_and_profile(None, Some(PruningProfile::Aggressive));
         let path = PathBuf::from("src/utils.ts");
         assert_eq!(rules.classify(&path), Some(FileCategory::TypeScriptSource));
     }
@@ -545,7 +615,7 @@ mod tests {
 
     #[test]
     fn test_build_files_classified() {
-        let rules = PruneRules::new();
+        let rules = PruneRules::new_with_config_and_profile(None, Some(PruningProfile::Aggressive));
 
         // Build files
         assert_eq!(
@@ -643,6 +713,97 @@ mod tests {
         assert_eq!(FileCategory::SourceMap.risk_level(), 1);
         assert_eq!(FileCategory::BuildArtifact.risk_level(), 1);
         assert_eq!(FileCategory::TypeScriptSource.risk_level(), 2);
+    }
+
+    #[test]
+    fn test_conservative_profile_only_prunes_ci_and_tests() {
+        let rules =
+            PruneRules::new_with_config_and_profile(None, Some(PruningProfile::Conservative));
+
+        assert_eq!(
+            rules.classify(&PathBuf::from("utils.test.js")),
+            Some(FileCategory::TestAsset)
+        );
+        assert_eq!(
+            rules.classify(&PathBuf::from(".github/workflows/ci.yml")),
+            Some(FileCategory::CiConfig)
+        );
+        assert_eq!(rules.classify(&PathBuf::from("README.md")), None);
+        assert_eq!(rules.classify(&PathBuf::from("examples/basic.js")), None);
+        assert_eq!(rules.classify(&PathBuf::from("dist/bundle.js.map")), None);
+        assert_eq!(rules.classify(&PathBuf::from("src/utils.ts")), None);
+        assert_eq!(rules.classify(&PathBuf::from("Makefile")), None);
+    }
+
+    #[test]
+    fn test_balanced_profile_is_default_and_excludes_ts_and_build_artifacts() {
+        let rules = PruneRules::new();
+
+        assert_eq!(rules.profile, PruningProfile::Balanced);
+        assert_eq!(
+            rules.classify(&PathBuf::from("README.md")),
+            Some(FileCategory::Documentation)
+        );
+        assert_eq!(
+            rules.classify(&PathBuf::from("examples/basic.js")),
+            Some(FileCategory::Example)
+        );
+        assert_eq!(
+            rules.classify(&PathBuf::from("dist/bundle.js.map")),
+            Some(FileCategory::SourceMap)
+        );
+        assert_eq!(rules.classify(&PathBuf::from("src/utils.ts")), None);
+        assert_eq!(rules.classify(&PathBuf::from("Makefile")), None);
+    }
+
+    #[test]
+    fn test_aggressive_profile_prunes_all_known_categories() {
+        let rules = PruneRules::new_with_config_and_profile(None, Some(PruningProfile::Aggressive));
+
+        assert_eq!(
+            rules.classify(&PathBuf::from("README.md")),
+            Some(FileCategory::Documentation)
+        );
+        assert_eq!(
+            rules.classify(&PathBuf::from("utils.test.js")),
+            Some(FileCategory::TestAsset)
+        );
+        assert_eq!(
+            rules.classify(&PathBuf::from("Makefile")),
+            Some(FileCategory::BuildArtifact)
+        );
+        assert_eq!(
+            rules.classify(&PathBuf::from("dist/bundle.js.map")),
+            Some(FileCategory::SourceMap)
+        );
+        assert_eq!(
+            rules.classify(&PathBuf::from(".github/workflows/ci.yml")),
+            Some(FileCategory::CiConfig)
+        );
+        assert_eq!(
+            rules.classify(&PathBuf::from("src/utils.ts")),
+            Some(FileCategory::TypeScriptSource)
+        );
+        assert_eq!(
+            rules.classify(&PathBuf::from("examples/basic.js")),
+            Some(FileCategory::Example)
+        );
+    }
+
+    #[test]
+    fn test_config_profile_changes_classification() {
+        let config = crate::config::Config {
+            profile: PruningProfile::Conservative,
+            ..Default::default()
+        };
+        let rules = PruneRules::new_with_config(Some(config));
+
+        assert_eq!(
+            rules.classify(&PathBuf::from("utils.test.js")),
+            Some(FileCategory::TestAsset)
+        );
+        assert_eq!(rules.classify(&PathBuf::from("README.md")), None);
+        assert_eq!(rules.classify(&PathBuf::from("src/utils.ts")), None);
     }
 
     /// Verifies that with --keep-license enabled, LICENSE files are never deleted.

@@ -10,6 +10,10 @@ use std::path::Path;
 /// Configuration structure matching rules.toml format
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
+    /// Pruning safety tier: conservative, balanced, or aggressive
+    #[serde(default)]
+    pub profile: crate::rules::PruningProfile,
+
     /// Whether to completely override default rules instead of merging
     #[serde(default)]
     pub override_defaults: bool,
@@ -152,6 +156,7 @@ fn default_dist_cache_timeout() -> u64 {
 impl Default for Config {
     fn default() -> Self {
         Self {
+            profile: crate::rules::PruningProfile::Balanced,
             keep_license: false,
             override_defaults: false,
             doc_files: vec![],
@@ -268,6 +273,10 @@ impl Config {
 # If true, ignores all built-in rules and only uses the ones defined here.
 # If false, these rules are added to the built-in defaults.
 override_defaults = false
+
+# Pruning safety tier: conservative, balanced (default), or aggressive
+profile = "balanced"
+
 # Keep license files (LICENSE, LICENCE, etc.) even when pruning documentation
 keep_license = false
 
@@ -388,6 +397,7 @@ mod tests {
     #[test]
     fn test_config_default() {
         let config = Config::default();
+        assert_eq!(config.profile, crate::rules::PruningProfile::Balanced);
         assert!(!config.override_defaults);
         assert!(config.doc_files.is_empty());
         assert!(config.test_dirs.is_empty());
@@ -397,6 +407,7 @@ mod tests {
     fn test_config_generate_sample() {
         let sample = Config::generate_sample();
         assert!(sample.contains("override_defaults"));
+        assert!(sample.contains("profile = \"balanced\""));
         assert!(sample.contains("doc_files"));
         assert!(sample.contains("test_dirs"));
         assert!(sample.contains("build_extensions"));
@@ -423,6 +434,7 @@ mod tests {
 
         let toml_content = r#"
 override_defaults = true
+profile = "aggressive"
 doc_files = ["CUSTOM_README.md"]
 test_dirs = ["custom_tests"]
 "#;
@@ -430,6 +442,7 @@ test_dirs = ["custom_tests"]
 
         let config = Config::from_file(&config_path)?;
         assert!(config.override_defaults);
+        assert_eq!(config.profile, crate::rules::PruningProfile::Aggressive);
         assert_eq!(config.doc_files, vec!["CUSTOM_README.md"]);
         assert_eq!(config.test_dirs, vec!["custom_tests"]);
 
