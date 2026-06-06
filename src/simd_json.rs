@@ -479,4 +479,119 @@ mod tests {
         assert!(scan.kv_count >= 2000);
         assert!(scan.throughput_mbs() > 0.0 || scan.scan_duration.as_nanos() == 0);
     }
+
+    #[test]
+    fn test_massive_package_manifest_scan() {
+        let mut json = String::from(r#"{"name":"fixture","version":"1.0.0","dependencies":{"#);
+        for i in 0..250_000 {
+            if i > 0 {
+                json.push(',');
+            }
+            json.push_str(&format!(
+                r#""package-{i:05}":"^{major}.{minor}.{patch}""#,
+                major = i % 10,
+                minor = i % 100,
+                patch = i % 1000
+            ));
+        }
+        json.push_str(
+            r#"},"keywords":["simd","json","benchmark"],"nested":{"flags":[true,false,null]}}"#,
+        );
+
+        assert!(
+            json.len() > 5 * 1024 * 1024,
+            "fixture should exercise 5MB+ package manifests"
+        );
+
+        let scanner = SimdJsonScanner::new();
+        let scan = scanner.scan(json.as_bytes());
+        let keys = scanner.extract_keys(json.as_bytes(), &scan);
+
+        assert_eq!(scan.bytes_scanned, json.len());
+        assert!(scan.kv_count >= 250_000);
+        assert!(scan.max_depth >= 3);
+        assert!(keys.contains(&"dependencies"));
+        assert!(
+            serde_json::from_str::<serde_json::Value>(&json).is_ok(),
+            "large fixture should remain valid JSON"
+        );
+    }
+
+    #[test]
+    fn test_malformed_json_scan_reports_without_panicking() {
+        let malformed_inputs: &[&[u8]] = &[
+            br#"{"name":"missing-close","items":[1,2,3}"#,
+            br#"{"name":"trailing-comma","items":[1,2,3,]}"#,
+            br#"{"name":"unterminated-string,"version":"1.0.0"}"#,
+        ];
+
+        let scanner = SimdJsonScanner::new();
+        for input in malformed_inputs {
+            let scan = scanner.scan(input);
+
+            assert_eq!(scan.bytes_scanned, input.len());
+            assert!(!scan.indices.is_empty());
+            assert!(
+                serde_json::from_slice::<serde_json::Value>(input).is_err(),
+                "standard parser should reject malformed JSON after structural scan"
+            );
+        }
+    }
+
+    #[test]
+    fn test_unicode_escaped_strings_and_nested_arrays_scan() {
+        let json = br#"{
+            "name": "unicode-package",
+            "description": "Handles \u03c0, emoji \ud83d\ude80, and \"quoted\" text",
+            "exports": {
+                ".": {
+                    "import": "./dist/index.mjs",
+                    "require": "./dist/index.cjs"
+                }
+            },
+            "matrix": [[["alpha", "beta"], ["gamma"]], [["delta"]]]
+        }"#;
+
+        let scanner = SimdJsonScanner::new();
+        let scan = scanner.scan(json);
+        let keys = scanner.extract_keys(json, &scan);
+
+        assert!(serde_json::from_slice::<serde_json::Value>(json).is_ok());
+        assert!(scan.max_depth >= 4);
+        assert!(scan.kv_count >= 7);
+        assert!(keys.contains(&"name"));
+        assert!(keys.contains(&"description"));
+        assert!(keys.contains(&"exports"));
+        assert!(keys.contains(&"matrix"));
+    }
+
+    #[test]
+    fn test_scalar_fallback_width_matches_auto_scan() {
+        let json = br#"{
+            "name": "fallback-fixture",
+            "scripts": {"test": "cargo test", "bench": "cargo bench"},
+            "dependencies": {"serde": "1", "serde_json": "1"},
+            "nested": [{"a": [1, 2, 3]}, {"b": {"c": true}}]
+        }"#;
+
+        let auto_scan = SimdJsonScanner::new().scan(json);
+        let scalar_scan = SimdJsonScanner { chunk_size: 1 }.scan(json);
+
+        assert_eq!(scalar_scan.bytes_scanned, auto_scan.bytes_scanned);
+        assert_eq!(scalar_scan.max_depth, auto_scan.max_depth);
+        assert_eq!(scalar_scan.string_count, auto_scan.string_count);
+        assert_eq!(scalar_scan.kv_count, auto_scan.kv_count);
+        assert_eq!(
+            scalar_scan
+                .indices
+                .iter()
+                .map(|idx| (idx.position, idx.char_type))
+                .collect::<Vec<_>>(),
+            auto_scan
+                .indices
+                .iter()
+                .map(|idx| (idx.position, idx.char_type))
+                .collect::<Vec<_>>()
+        );
+    }
 }
