@@ -100,6 +100,7 @@ impl IssueSeverity {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum IssueCategory {
     DuplicatePackage,
+    MissingDependency,
     MissingPeerDep,
     DeprecatedPackage,
     LicenseIssue,
@@ -115,6 +116,7 @@ impl IssueCategory {
     pub fn label(&self) -> &'static str {
         match self {
             Self::DuplicatePackage => "Duplicate Packages",
+            Self::MissingDependency => "Missing Installed Dependencies",
             Self::MissingPeerDep => "Missing Peer Dependencies",
             Self::DeprecatedPackage => "Deprecated Packages",
             Self::LicenseIssue => "License Concerns",
@@ -171,6 +173,14 @@ struct PkgJson {
     scripts: Option<HashMap<String, String>>,
 }
 
+#[derive(Debug, Deserialize)]
+struct RootPkgJson {
+    #[serde(default)]
+    dependencies: HashMap<String, String>,
+    #[serde(rename = "devDependencies", default)]
+    dev_dependencies: HashMap<String, String>,
+}
+
 /// Run a comprehensive health check on node_modules.
 pub fn check_health(node_modules_path: &Path) -> Result<HealthReport> {
     use indicatif::{ProgressBar, ProgressStyle};
@@ -209,6 +219,10 @@ pub fn check_health(node_modules_path: &Path) -> Result<HealthReport> {
     )?;
 
     pb.set_message("Analyzing results...");
+
+    if let Some(project_root) = node_modules_path.parent() {
+        check_declared_dependencies(project_root, node_modules_path, &mut issues);
+    }
 
     // Check for duplicate versions
     for (name, versions) in &version_map {
@@ -317,6 +331,66 @@ pub fn check_health(node_modules_path: &Path) -> Result<HealthReport> {
         license_distribution: license_map,
         max_nesting_depth: max_depth,
     })
+}
+
+fn check_declared_dependencies(
+    project_root: &Path,
+    node_modules_path: &Path,
+    issues: &mut Vec<HealthIssue>,
+) {
+    let package_json_path = project_root.join("package.json");
+    let Ok(content) = fs::read_to_string(&package_json_path) else {
+        return;
+    };
+    let Ok(package_json) = serde_json::from_str::<RootPkgJson>(&content) else {
+        return;
+    };
+
+    for (name, _version) in package_json
+        .dependencies
+        .iter()
+        .chain(package_json.dev_dependencies.iter())
+    {
+        let package_path = dependency_path(node_modules_path, name);
+        let package_json = package_path.join("package.json");
+
+        if !package_path.exists() {
+            issues.push(HealthIssue {
+                severity: IssueSeverity::Error,
+                category: IssueCategory::MissingDependency,
+                message: format!("Declared dependency {} is missing from node_modules", name),
+                package: Some(name.clone()),
+                suggestion: Some(
+                    "Run your package manager install command to restore missing dependencies"
+                        .into(),
+                ),
+            });
+            continue;
+        }
+
+        if !package_path.is_dir() || !package_json.is_file() {
+            issues.push(HealthIssue {
+                severity: IssueSeverity::Error,
+                category: IssueCategory::MissingDependency,
+                message: format!(
+                    "Declared dependency {} is installed but has no package.json",
+                    name
+                ),
+                package: Some(name.clone()),
+                suggestion: Some(
+                    "Reinstall the dependency to repair the broken package directory".into(),
+                ),
+            });
+        }
+    }
+}
+
+fn dependency_path(node_modules_path: &Path, package_name: &str) -> std::path::PathBuf {
+    package_name
+        .split('/')
+        .fold(node_modules_path.to_path_buf(), |path, segment| {
+            path.join(segment)
+        })
 }
 
 /// Recursively scan packages in a node_modules directory.
@@ -802,5 +876,64 @@ mod tests {
         assert!(IssueSeverity::Critical > IssueSeverity::Error);
         assert!(IssueSeverity::Error > IssueSeverity::Warning);
         assert!(IssueSeverity::Warning > IssueSeverity::Info);
+    }
+
+    #[test]
+    fn test_declared_dependency_missing_from_node_modules() -> Result<()> {
+        let temp = tempfile::tempdir()?;
+        fs::create_dir(temp.path().join("node_modules"))?;
+        fs::write(
+            temp.path().join("package.json"),
+            r#"{"dependencies":{"left-pad":"1.3.0"}}"#,
+        )?;
+
+        let mut issues = Vec::new();
+        check_declared_dependencies(temp.path(), &temp.path().join("node_modules"), &mut issues);
+
+        assert_eq!(issues.len(), 1);
+        assert_eq!(issues[0].category, IssueCategory::MissingDependency);
+        assert!(issues[0].message.contains("left-pad"));
+        assert_eq!(issues[0].severity, IssueSeverity::Error);
+        Ok(())
+    }
+
+    #[test]
+    fn test_declared_scoped_dependency_without_package_json_is_broken() -> Result<()> {
+        let temp = tempfile::tempdir()?;
+        let scoped_pkg = temp.path().join("node_modules").join("@scope").join("pkg");
+        fs::create_dir_all(&scoped_pkg)?;
+        fs::write(
+            temp.path().join("package.json"),
+            r#"{"devDependencies":{"@scope/pkg":"2.0.0"}}"#,
+        )?;
+
+        let mut issues = Vec::new();
+        check_declared_dependencies(temp.path(), &temp.path().join("node_modules"), &mut issues);
+
+        assert_eq!(issues.len(), 1);
+        assert_eq!(issues[0].package.as_deref(), Some("@scope/pkg"));
+        assert!(issues[0].message.contains("has no package.json"));
+        Ok(())
+    }
+
+    #[test]
+    fn test_declared_dependency_with_package_json_is_healthy() -> Result<()> {
+        let temp = tempfile::tempdir()?;
+        let pkg = temp.path().join("node_modules").join("chalk");
+        fs::create_dir_all(&pkg)?;
+        fs::write(
+            pkg.join("package.json"),
+            r#"{"name":"chalk","version":"5.0.0"}"#,
+        )?;
+        fs::write(
+            temp.path().join("package.json"),
+            r#"{"dependencies":{"chalk":"5.0.0"}}"#,
+        )?;
+
+        let mut issues = Vec::new();
+        check_declared_dependencies(temp.path(), &temp.path().join("node_modules"), &mut issues);
+
+        assert!(issues.is_empty());
+        Ok(())
     }
 }
